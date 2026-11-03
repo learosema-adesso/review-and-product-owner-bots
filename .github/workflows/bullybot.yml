@@ -1,9 +1,45 @@
-- name: Run Mean AI Reviewer
-  env:
-    GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-  uses: actions/github-script@v7
-  with:
-    github-token: ${{ secrets.BOT_USER_TOKEN || github.token }}
-    script: |
-      const { bullybot } = await import('./scripts/bullybot.mjs');
-      await bullybot({ github, context, core });
+name: Bullybot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Nummer des PRs, der gereviewt werden soll'
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: bullybot-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  bully:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Mean AI Reviewer
+        uses: actions/github-script@v7
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        with:
+          github-token: ${{ secrets.BOT_USER_TOKEN || github.token }}
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const file = path.join(process.env.GITHUB_WORKSPACE, 'scripts/bullybot.mjs');
+            const { bullybot } = await import(pathToFileURL(file).href);
+            await bullybot({
+              github,
+              context,
+              core,
+              prNumber: Number(process.env.PR_NUMBER),
+            });
