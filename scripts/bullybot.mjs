@@ -1,6 +1,6 @@
 const MARKER = '<!-- bullybot -->';
 const BOT_RESOLVED = '<!-- bullybot:resolved -->';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const MAX_DIFF_CHARS = 30000;
