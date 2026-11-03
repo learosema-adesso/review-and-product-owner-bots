@@ -33,7 +33,7 @@ jobs:
           cache-dependency-path: scripts/package-lock.json
       
       - name: Install Dependencies
-        run: npm ci --ignore-scripts--prefix scripts
+        run: npm ci --ignore-scripts --prefix scripts
 
       - name: Run Mean AI Reviewer
         uses: actions/github-script@v8
