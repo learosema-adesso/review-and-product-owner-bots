@@ -3,8 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 const MARKER = '<!-- bullybot -->';
 const BOT_RESOLVED = '<!-- bullybot:resolved -->';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-const GEMINI_URL =
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const RETRYABLE = new Set([429, 500, 503]);
 const MAX_DIFF_CHARS = 30000;
 const MAX_FILE_DIFF_CHARS = 10000;
 const MAX_FINDINGS = 8;
@@ -62,6 +61,12 @@ const VERDICT_SCHEMA = {
     },
     required: ['verdict', 'reply'],
 };
+
+/**
+ * Erkennt Bot-Autoren (dependabot[bot], renovate[bot], github-actions[bot] ...).
+ * GitHub setzt bei Apps/Bots `type: 'Bot'` und hängt `[bot]` an den Login.
+ */
+const isBotAuthor = user => user?.type === 'Bot' || user?.login?.endsWith('[bot]') === true;
 
 const stripMarkers = s => s.replaceAll(MARKER, '').replaceAll(BOT_RESOLVED, '').trim();
 
@@ -158,10 +163,14 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
     const ai = new GoogleGenAI({ apiKey, enterprise: true, project: process.env.GEMINI_PROJECT_ID, location: process.env.GEMINI_LOCATION || 'us-central1' });
     const ask = opts => gemini({ ai, ...opts });
 
-    // 1. Draft-Check
+    // 1. Draft- und Bot-Check
     const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
     if (pr.draft) {
         core.info('PR is in draft mode. BullyBot holds back.');
+        return;
+    }
+    if (isBotAuthor(pr.user)) {
+        core.info(`PR was opened by a bot (${pr.user?.login}). BullyBot doesn't bully machines.`);
         return;
     }
 
