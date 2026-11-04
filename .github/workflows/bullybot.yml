@@ -20,13 +20,19 @@ concurrency:
 
 jobs:
   bully:
+    # Bot-PRs (Dependabot, Renovate, ...) bekommen keine Secrets: Job gar nicht erst starten.
+    # workflow_dispatch hat kein pull_request-Event und läuft immer durch.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.user.type != 'Bot' &&
+      !endsWith(github.event.pull_request.user.login, '[bot]'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -41,7 +47,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         with:
-          github-token: ${{ secrets.BOT_USER_TOKEN || github.token }}
+          github-token: ${{ github.token }}
           script: |
             const path = require('path');
             const { pathToFileURL } = require('url');
