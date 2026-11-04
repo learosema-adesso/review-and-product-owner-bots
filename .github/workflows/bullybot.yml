@@ -42,7 +42,7 @@ jobs:
         run: npm ci --ignore-scripts --prefix scripts
 
       - name: Run Mean AI Reviewer
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
