@@ -146,13 +146,6 @@ function parseDiff(diff) {
 }
 
 export async function bullybot({ github, context, core, prNumber: prNumberInput }) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        core.setFailed('GEMINI_API_KEY secret is missing!');
-        return;
-    }
-
-
     const { owner, repo } = context.repo;
     const prNumber = Number(prNumberInput ?? context.issue?.number);
     if (!Number.isInteger(prNumber) || prNumber <= 0) {
@@ -160,19 +153,26 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
         return;
     }
 
-    const ai = new GoogleGenAI({ apiKey, enterprise: true, project: process.env.GEMINI_PROJECT_ID, location: process.env.GEMINI_LOCATION || 'us-central1' });
-    const ask = opts => gemini({ ai, ...opts });
-
-    // 1. Draft- und Bot-Check
+    // 1. Bot- und Draft-Check: muss vor dem API-Key-Check kommen, denn
+    //    Bot-PRs (z.B. Dependabot) bekommen keine Secrets/Env Vars.
     const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-    if (pr.draft) {
-        core.info('PR is in draft mode. BullyBot holds back.');
-        return;
-    }
     if (isBotAuthor(pr.user)) {
         core.info(`PR was opened by a bot (${pr.user?.login}). BullyBot doesn't bully machines.`);
         return;
     }
+    if (pr.draft) {
+        core.info('PR is in draft mode. BullyBot holds back.');
+        return;
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        core.setFailed('GEMINI_API_KEY secret is missing!');
+        return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey, enterprise: true, project: process.env.GEMINI_PROJECT_ID, location: process.env.GEMINI_LOCATION || 'us-central1' });
+    const ask = opts => gemini({ ai, ...opts });
 
     // 2. Mute-Check (eigene Kommentare ignorieren)
     const comments = await github.paginate(github.rest.issues.listComments, {
