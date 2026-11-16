@@ -7,17 +7,21 @@ import {
   renderAcceptanceReport,
   acceptanceSummaryLine,
 } from './bullybot/acceptance.mjs';
+import {
+  MARKER,
+  BOT_RESOLVED,
+  ACCEPTANCE_MARKER,
+  threadLine as lineOf,
+  selectFindings,
+  upsertAcceptanceComment,
+} from './bullybot/review.mjs';
 
-const MARKER = '<!-- bullybot -->';
-const BOT_RESOLVED = '<!-- bullybot:resolved -->';
-const ACCEPTANCE_MARKER = '<!-- bullybot:acceptance -->';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const RETRYABLE = new Set([429, 500, 503]);
 const MAX_DIFF_CHARS = 120_000;
 const MAX_CONTEXT_CHARS = 250_000;
 const MAX_FILE_DIFF_CHARS = 10_000;
 const MAX_FINDINGS = 8;
-const SEVERITY_RANK = { critical: 0, major: 1, minor: 2 };
 
 const PERSONA =
   'You are a salty, sarcastic senior developer with 25 years of experience who has seen every shortcut ' +
@@ -68,6 +72,7 @@ const REVIEW_INSTRUCTIONS =
   'Judge only by code you can see; when in doubt, say "no". evidence: one short sentence naming the file and what ' +
   'implements or tests it, or what is missing. ' +
   'summary: a scathing overall verdict in markdown (if there is nothing to complain about, be begrudging about it). ' +
+  'Do not start the summary with a heading or title: it is posted under a "BullyBot" heading already. ' +
   'Roast unmet acceptance criteria and untested behavior there.';
 
 const REVIEW_SCHEMA = {
@@ -157,19 +162,6 @@ async function gemini({ ai, system, prompt, schema, temperature = 0.85 }) {
     );
   }
   return schema ? JSON.parse(text) : text;
-}
-
-/**
- * Creates or updates the single acceptance criteria checklist comment on the PR,
- * so every push refreshes it instead of adding noise.
- */
-async function upsertAcceptanceComment({ github, owner, repo, prNumber, comments, report }) {
-  const body = `${MARKER}${ACCEPTANCE_MARKER}\n${report}`;
-  const existing = comments.find((c) => c.body?.includes(ACCEPTANCE_MARKER));
-  if (existing?.body === body) return;
-  if (existing)
-    await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-  else await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
 }
 
 export async function bullybot({ github, context, core, prNumber: prNumberInput }) {
@@ -335,7 +327,6 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
         ? 'fixed'
         : 'DISMISSED by the human as false positive: never raise again'
       : 'open';
-  const lineOf = (t) => t.line ?? t.originalLine ?? null;
 
   const known =
     botThreads
@@ -399,7 +390,7 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
   // 8. Acceptance criteria checklist: one sticky comment, refreshed on every run
   const assessments = result.acceptance ?? [];
   try {
-    await upsertAcceptanceComment({
+    const outcome = await upsertAcceptanceComment({
       github,
       owner,
       repo,
@@ -407,21 +398,12 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
       comments,
       report: renderAcceptanceReport(issues, assessments),
     });
+    core.info(`Acceptance criteria comment: ${outcome}.`);
   } catch (error) {
     core.warning(`Updating the acceptance criteria comment failed: ${error.message}`);
   }
 
-  // Deterministic safety net: valid line, not close to an existing bot thread, most severe first
-  const findings = (result.findings ?? [])
-    .filter((f) => files.get(f.path)?.valid.has(f.line))
-    .filter(
-      (f) =>
-        !botThreads.some(
-          (t) => t.path === f.path && lineOf(t) !== null && Math.abs(lineOf(t) - f.line) <= 3,
-        ),
-    )
-    .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3))
-    .slice(0, MAX_FINDINGS);
+  const findings = selectFindings(result.findings, { files, botThreads, max: MAX_FINDINGS });
 
   if (!findings.length && botThreads.length) {
     core.info('No new findings. BullyBot stays quiet.');
