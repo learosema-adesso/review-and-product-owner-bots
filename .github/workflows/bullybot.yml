@@ -6,12 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'Nummer des PRs, der gereviewt werden soll'
+        description: 'Number of the PR to review'
         required: true
         type: number
 
 permissions:
   contents: read
+  issues: read # linked issues and their acceptance criteria
   pull-requests: write
 
 concurrency:
@@ -20,8 +21,8 @@ concurrency:
 
 jobs:
   bully:
-    # Bot-PRs (Dependabot, Renovate, ...) bekommen keine Secrets: Job gar nicht erst starten.
-    # workflow_dispatch hat kein pull_request-Event und läuft immer durch.
+    # Bot PRs (Dependabot, Renovate, ...) don't get secrets: don't even start the job.
+    # workflow_dispatch has no pull_request event and always runs.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.user.type != 'Bot' &&
