@@ -288,10 +288,17 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
           PERSONA +
           ' Your task now: decide whether a finding you raised earlier has been dealt with. ' +
           'verdict "fixed": the current code no longer has the problem. ' +
-          'verdict "dispute_accepted": a human replied with a valid reason why your finding was wrong or irrelevant (you may concede, grudgingly). ' +
+          'verdict "dispute_accepted": a human replied with a valid reason why your finding was wrong or irrelevant. ' +
           'verdict "still_open": the problem is still there and no valid objection was given. ' +
-          'When unsure, choose "still_open". ' +
-          'reply: one or two sarcastic sentences, technically precise, saying what changed or why you hold your ground. ' +
+          "Judge the human's argument on its technical merits, not on your pride: if the argument is correct, " +
+          'your finding was wrong, full stop. Choose "still_open" only when no reason was given or the reason does not hold up. ' +
+          'reply: one or two sarcastic sentences, technically precise. ' +
+          'For "fixed": say what changed. ' +
+          'For "dispute_accepted": clearly admit that YOU made a mistake and name what you got wrong, ' +
+          'in the spirit of "Fine, I was wrong: <what is actually true>." (your own words, not this template). ' +
+          'Stay salty, but aim it at yourself or the situation, never deflect the blame to the human, ' +
+          'never pretend the finding was half right, and never turn the concession into a new complaint. ' +
+          'For "still_open": say why the problem still stands and what would convince you. ' +
           'For "fixed" and "dispute_accepted", end the reply by telling the human to resolve the thread themselves, ' +
           'in your voice: you are not allowed to click that button and you are not happy about doing their paperwork ' +
           '(vary it, e.g. "Go ahead, click Resolve. I\'ll pretend I did it."). Never claim you resolved it.',
