@@ -3,6 +3,9 @@ name: Bullybot
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # replies in review threads: BullyBot only re-checks its own threads (no full review)
+  pull_request_review_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -17,7 +20,8 @@ permissions:
 
 concurrency:
   group: bullybot-${{ github.event.pull_request.number || inputs.pr_number }}
-  cancel-in-progress: true
+  # a thread reply must not cancel a running full review; it waits in the queue instead
+  cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
 
 jobs:
   bully:
@@ -26,7 +30,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.user.type != 'Bot' &&
-      !endsWith(github.event.pull_request.user.login, '[bot]'))
+      !endsWith(github.event.pull_request.user.login, '[bot]') &&
+      github.event.comment.user.type != 'Bot')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

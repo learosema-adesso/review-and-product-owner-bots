@@ -9,6 +9,13 @@ const DUPLICATE_DISTANCE = 3; // lines: a new finding this close to an existing 
 /** Line of a review thread; outdated threads only have their original line. */
 export const threadLine = (t) => t.line ?? t.originalLine ?? null;
 
+/** An open BullyBot thread where a human had the last word. */
+export const awaitsReply = (t) =>
+  !t.isResolved && t.comments.nodes.length > 0 && !t.comments.nodes.at(-1).body?.includes(MARKER);
+
+/** Events that only re-check existing threads instead of running a full review. */
+export const isThreadsOnlyEvent = (eventName) => eventName === 'pull_request_review_comment';
+
 const severityRank = (f) => SEVERITY_RANK[f.severity] ?? UNKNOWN_SEVERITY_RANK;
 
 /**

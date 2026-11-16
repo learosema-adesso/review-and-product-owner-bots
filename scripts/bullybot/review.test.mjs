@@ -4,6 +4,8 @@ import {
   selectFindings,
   upsertAcceptanceComment,
   threadLine,
+  awaitsReply,
+  isThreadsOnlyEvent,
   MARKER,
   ACCEPTANCE_MARKER,
 } from './review.mjs';
@@ -125,4 +127,23 @@ test('upsertAcceptanceComment does nothing when the report did not change', asyn
   });
   assert.equal(result, 'unchanged');
   assert.deepEqual(github.calls, []);
+});
+
+const thread = (isResolved, ...bodies) => ({
+  isResolved,
+  comments: { nodes: bodies.map((body) => ({ body })) },
+});
+
+test('awaitsReply is true only for open threads where a human spoke last', () => {
+  assert.equal(awaitsReply(thread(false, `${MARKER}\nfinding`, 'that is a false positive')), true);
+  assert.equal(awaitsReply(thread(false, `${MARKER}\nfinding`)), false);
+  assert.equal(awaitsReply(thread(false, `${MARKER}\nfinding`, 'no', `${MARKER}\nyes`)), false);
+  assert.equal(awaitsReply(thread(true, `${MARKER}\nfinding`, 'fixed it')), false);
+  assert.equal(awaitsReply(thread(false)), false);
+});
+
+test('isThreadsOnlyEvent is true for review comment replies only', () => {
+  assert.equal(isThreadsOnlyEvent('pull_request_review_comment'), true);
+  assert.equal(isThreadsOnlyEvent('pull_request'), false);
+  assert.equal(isThreadsOnlyEvent('workflow_dispatch'), false);
 });

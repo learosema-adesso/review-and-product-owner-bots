@@ -14,6 +14,8 @@ import {
   threadLine as lineOf,
   selectFindings,
   upsertAcceptanceComment,
+  awaitsReply,
+  isThreadsOnlyEvent,
 } from './bullybot/review.mjs';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
@@ -225,14 +227,7 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
   }
   const files = parseDiff(diffContent);
 
-  // 4. Collect context: linked issues, full files, related tests, guidelines, ...
-  const ctx = await gatherContext({ github, owner, repo, pr, core });
-  const issues = ctx.linkedIssues.map(withCriterionIds);
-  core.info(
-    `Linked issues: ${issues.map((i) => `#${i.number} (${i.criteria.length} criteria)`).join(', ') || 'none'}`,
-  );
-
-  // 5. Load existing review threads and keep only BullyBot's
+  // 4. Load existing review threads and keep only BullyBot's
   let botThreads = [];
   try {
     const data = await github.graphql(
@@ -260,8 +255,17 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
     core.warning(`Failed to load review threads: ${error.message}`);
   }
 
-  // 6. Open bot threads: has the problem been fixed (or refuted)?
-  for (const thread of botThreads.filter((t) => !t.isResolved)) {
+  // A reply in a review thread only re-checks threads with a new human reply:
+  // the code did not change, so a full review would just burn tokens.
+  const threadsOnly = isThreadsOnlyEvent(context.eventName);
+  const threadsToCheck = botThreads.filter(threadsOnly ? awaitsReply : (t) => !t.isResolved);
+  if (threadsOnly && !threadsToCheck.length) {
+    core.info('No BullyBot thread is waiting for an answer. Back to sleep.');
+    return;
+  }
+
+  // 5. Open bot threads: has the problem been fixed (or refuted)?
+  for (const thread of threadsToCheck) {
     const msgs = thread.comments.nodes;
     const lastIsHuman = !msgs.at(-1).body.includes(MARKER);
 
@@ -319,6 +323,15 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
       core.warning(`Thread ${thread.id} skipped: ${error.message}`);
     }
   }
+
+  if (threadsOnly) return;
+
+  // 6. Collect context: linked issues, full files, related tests, guidelines, ...
+  const ctx = await gatherContext({ github, owner, repo, pr, core });
+  const issues = ctx.linkedIssues.map(withCriterionIds);
+  core.info(
+    `Linked issues: ${issues.map((i) => `#${i.number} (${i.criteria.length} criteria)`).join(', ') || 'none'}`,
+  );
 
   // 7. New review: pass known findings so nothing is reported twice
   const status = (t) =>
