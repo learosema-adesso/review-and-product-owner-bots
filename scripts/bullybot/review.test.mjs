@@ -6,6 +6,9 @@ import {
   threadLine,
   awaitsReply,
   isThreadsOnlyEvent,
+  isSettledByBot,
+  threadStatus,
+  BOT_RESOLVED,
   MARKER,
   ACCEPTANCE_MARKER,
 } from './review.mjs';
@@ -146,4 +149,34 @@ test('isThreadsOnlyEvent is true for review comment replies only', () => {
   assert.equal(isThreadsOnlyEvent('pull_request_review_comment'), true);
   assert.equal(isThreadsOnlyEvent('pull_request'), false);
   assert.equal(isThreadsOnlyEvent('workflow_dispatch'), false);
+});
+
+test('awaitsReply ignores threads BullyBot already settled, even if a human replies later', () => {
+  assert.equal(
+    awaitsReply(
+      thread(false, `${MARKER}\nfinding`, 'nope', `${MARKER}${BOT_RESOLVED}\nfine`, 'thx'),
+    ),
+    false,
+  );
+});
+
+test('isSettledByBot looks for the resolved marker in any reply', () => {
+  assert.equal(
+    isSettledByBot(thread(false, `${MARKER}\nfinding`, `${MARKER}${BOT_RESOLVED}\nok`)),
+    true,
+  );
+  assert.equal(isSettledByBot(thread(true, `${MARKER}\nfinding`, 'resolved by hand')), false);
+});
+
+test('threadStatus distinguishes settled, dismissed and open threads', () => {
+  assert.match(
+    threadStatus(thread(false, `${MARKER}\nf`, `${MARKER}${BOT_RESOLVED}\nok`)),
+    /^settled/,
+  );
+  assert.match(
+    threadStatus(thread(true, `${MARKER}\nf`, `${MARKER}${BOT_RESOLVED}\nok`)),
+    /^settled/,
+  );
+  assert.match(threadStatus(thread(true, `${MARKER}\nf`)), /^DISMISSED/);
+  assert.equal(threadStatus(thread(false, `${MARKER}\nf`, 'hmm')), 'open');
 });

@@ -9,9 +9,25 @@ const DUPLICATE_DISTANCE = 3; // lines: a new finding this close to an existing 
 /** Line of a review thread; outdated threads only have their original line. */
 export const threadLine = (t) => t.line ?? t.originalLine ?? null;
 
-/** An open BullyBot thread where a human had the last word. */
+/**
+ * BullyBot already conceded or confirmed the fix in this thread. The workflow token can't
+ * resolve threads, so it stays open until a human clicks "Resolve": it counts as done anyway.
+ */
+export const isSettledByBot = (t) => t.comments.nodes.some((c) => c.body?.includes(BOT_RESOLVED));
+
+/** An open, unsettled BullyBot thread where a human had the last word. */
 export const awaitsReply = (t) =>
-  !t.isResolved && t.comments.nodes.length > 0 && !t.comments.nodes.at(-1).body?.includes(MARKER);
+  !t.isResolved &&
+  !isSettledByBot(t) &&
+  t.comments.nodes.length > 0 &&
+  !t.comments.nodes.at(-1).body?.includes(MARKER);
+
+/** Status of a known finding, as passed to the model so it doesn't raise it again. */
+export const threadStatus = (t) => {
+  if (isSettledByBot(t)) return 'settled (fixed, or BullyBot conceded): never raise again';
+  if (t.isResolved) return 'DISMISSED by the human as false positive: never raise again';
+  return 'open';
+};
 
 /** Events that only re-check existing threads instead of running a full review. */
 export const isThreadsOnlyEvent = (eventName) => eventName === 'pull_request_review_comment';

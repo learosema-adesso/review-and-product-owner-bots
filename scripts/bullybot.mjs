@@ -16,6 +16,8 @@ import {
   upsertAcceptanceComment,
   awaitsReply,
   isThreadsOnlyEvent,
+  isSettledByBot,
+  threadStatus,
 } from './bullybot/review.mjs';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
@@ -245,12 +247,9 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
       }`,
       { owner, repo, prNumber },
     );
-    botThreads = data.repository.pullRequest.reviewThreads.nodes
-      .filter((t) => t.comments.nodes[0]?.body.includes(MARKER))
-      .map((t) => ({
-        ...t,
-        resolvedByBot: t.comments.nodes.some((c) => c.body.includes(BOT_RESOLVED)),
-      }));
+    botThreads = data.repository.pullRequest.reviewThreads.nodes.filter((t) =>
+      t.comments.nodes[0]?.body.includes(MARKER),
+    );
   } catch (error) {
     core.warning(`Failed to load review threads: ${error.message}`);
   }
@@ -258,7 +257,9 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
   // A reply in a review thread only re-checks threads with a new human reply:
   // the code did not change, so a full review would just burn tokens.
   const threadsOnly = isThreadsOnlyEvent(context.eventName);
-  const threadsToCheck = botThreads.filter(threadsOnly ? awaitsReply : (t) => !t.isResolved);
+  const threadsToCheck = botThreads.filter(
+    threadsOnly ? awaitsReply : (t) => !t.isResolved && !isSettledByBot(t),
+  );
   if (threadsOnly && !threadsToCheck.length) {
     core.info('No BullyBot thread is waiting for an answer. Back to sleep.');
     return;
@@ -290,34 +291,33 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
           'verdict "dispute_accepted": a human replied with a valid reason why your finding was wrong or irrelevant (you may concede, grudgingly). ' +
           'verdict "still_open": the problem is still there and no valid objection was given. ' +
           'When unsure, choose "still_open". ' +
-          'reply: one or two sarcastic sentences, technically precise, saying what changed or why you hold your ground.',
+          'reply: one or two sarcastic sentences, technically precise, saying what changed or why you hold your ground. ' +
+          'For "fixed" and "dispute_accepted", end the reply by telling the human to resolve the thread themselves, ' +
+          'in your voice: you are not allowed to click that button and you are not happy about doing their paperwork ' +
+          '(vary it, e.g. "Go ahead, click Resolve. I\'ll pretend I did it."). Never claim you resolved it.',
         prompt:
           `Thread on ${thread.path}:\n\n${conversation}\n\n` +
           `Current diff of this file:\n\`\`\`diff\n${fileDiff}\n\`\`\``,
       });
 
-      const resolve = v.verdict !== 'still_open';
-      if (!resolve && !lastIsHuman) continue; // nothing new, BullyBot stays quiet
+      const settle = v.verdict !== 'still_open';
+      if (!settle && !lastIsHuman) continue; // nothing new, BullyBot stays quiet
 
+      // The workflow token is not allowed to resolve review threads ("Resource not accessible
+      // by integration"), so BullyBot marks the thread as settled and asks the human to resolve it.
+      const body = `${MARKER}${settle ? BOT_RESOLVED : ''}\n${v.reply}`;
       await github.graphql(
         `mutation($threadId: ID!, $body: String!) {
           addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $threadId, body: $body }) {
             comment { id }
           }
         }`,
-        { threadId: thread.id, body: `${MARKER}${resolve ? BOT_RESOLVED : ''}\n${v.reply}` },
+        { threadId: thread.id, body },
       );
 
-      if (resolve) {
-        await github.graphql(
-          `mutation($threadId: ID!) {
-            resolveReviewThread(input: { threadId: $threadId }) { thread { isResolved } }
-          }`,
-          { threadId: thread.id },
-        );
-        thread.isResolved = true;
-        thread.resolvedByBot = true;
-        core.info(`Thread ${thread.id} resolved (${v.verdict}).`);
+      if (settle) {
+        thread.comments.nodes.push({ body });
+        core.info(`Thread ${thread.id} settled (${v.verdict}).`);
       }
     } catch (error) {
       core.warning(`Thread ${thread.id} skipped: ${error.message}`);
@@ -334,18 +334,11 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
   );
 
   // 7. New review: pass known findings so nothing is reported twice
-  const status = (t) =>
-    t.isResolved
-      ? t.resolvedByBot
-        ? 'fixed'
-        : 'DISMISSED by the human as false positive: never raise again'
-      : 'open';
-
   const known =
     botThreads
       .map(
         (t) =>
-          `- [${status(t)}] ${t.path}:${lineOf(t) ?? '?'}: ${stripMarkers(t.comments.nodes[0].body).slice(0, 300)}`,
+          `- [${threadStatus(t)}] ${t.path}:${lineOf(t) ?? '?'}: ${stripMarkers(t.comments.nodes[0].body).slice(0, 300)}`,
       )
       .join('\n') || '(none)';
 

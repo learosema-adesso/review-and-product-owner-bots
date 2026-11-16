@@ -73,7 +73,7 @@ async function fetchLinkedIssues({ github, owner, repo, pr, core }) {
   }
 
   // Fallback: issues mentioned in the PR text ("Part of #12"), stop once we have enough
-  for (const number of issueRefs(`${pr.title}\n${pr.body}`)) {
+  for (const number of issueRefs(`${pr.title}\n${pr.body ?? ''}`)) {
     if (issues.size >= MAX_LINKED_ISSUES) break;
     if (issues.has(number) || number === pr.number) continue;
     try {
