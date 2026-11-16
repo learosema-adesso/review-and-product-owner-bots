@@ -1,19 +1,29 @@
 const CHECKBOX = /^\s*[-*+]\s+\[( |x|X)\]\s+(.+?)\s*$/;
-const HEADING = /^\s*#{1,6}\s+/;
-const AC_HEADING = /^\s*#{1,6}\s+(acceptance criteria|akzeptanzkriterien|definition of done)\b/i;
+const HEADING = /^\s*(#{1,6})\s+/;
+const AC_TITLE = /^(acceptance criteria|akzeptanzkriterien|definition of done)\b/i;
+
+/** Heading level (1-6) of a markdown line, or 0 if it is not a heading. */
+const headingLevel = (line) => line.match(HEADING)?.[1].length ?? 0;
 
 /**
  * Reads the acceptance criteria (checkbox list) from an issue body.
- * If there is an "Acceptance criteria" heading, only that section counts,
- * otherwise every checkbox in the body is taken.
+ * If there is an "Acceptance criteria" heading, only that section counts, including its
+ * sub-headings, up to the next heading of the same or a higher level.
+ * Otherwise every checkbox in the body is taken.
  */
 export function parseAcceptanceCriteria(body) {
   const lines = (body ?? '').split(/\r?\n/);
-  const start = lines.findIndex((l) => AC_HEADING.test(l));
+  const start = lines.findIndex(
+    (l) => headingLevel(l) > 0 && AC_TITLE.test(l.replace(HEADING, '')),
+  );
   let scope = lines;
   if (start !== -1) {
+    const level = headingLevel(lines[start]);
     const rest = lines.slice(start + 1);
-    const end = rest.findIndex((l) => HEADING.test(l));
+    const end = rest.findIndex((l) => {
+      const lvl = headingLevel(l);
+      return lvl > 0 && lvl <= level;
+    });
     scope = end === -1 ? rest : rest.slice(0, end);
   }
   return scope

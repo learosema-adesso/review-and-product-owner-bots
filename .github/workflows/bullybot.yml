@@ -26,12 +26,14 @@ concurrency:
 jobs:
   bully:
     # Bot PRs (Dependabot, Renovate, ...) don't get secrets: don't even start the job.
+    # Review comments written by bots are ignored as well.
     # workflow_dispatch has no pull_request event and always runs.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.user.type != 'Bot' &&
       !endsWith(github.event.pull_request.user.login, '[bot]') &&
-      github.event.comment.user.type != 'Bot')
+      (github.event_name != 'pull_request_review_comment' ||
+      github.event.comment.user.type != 'Bot'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

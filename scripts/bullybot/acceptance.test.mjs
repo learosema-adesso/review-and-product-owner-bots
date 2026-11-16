@@ -29,6 +29,43 @@ test('parseAcceptanceCriteria only reads the acceptance criteria section', () =>
   ]);
 });
 
+test('parseAcceptanceCriteria keeps criteria under sub-headings of the section', () => {
+  const body = [
+    '## Acceptance criteria',
+    '- [ ] general',
+    '### Feature A',
+    '- [ ] a1',
+    '#### Edge cases',
+    '- [ ] a2',
+    '### Feature B',
+    '- [x] b1',
+    '## Notes',
+    '- [ ] not a criterion',
+    '# Appendix',
+    '- [ ] not one either',
+  ].join('\n');
+  assert.deepEqual(
+    parseAcceptanceCriteria(body).map((c) => c.text),
+    ['general', 'a1', 'a2', 'b1'],
+  );
+});
+
+test('parseAcceptanceCriteria ends a level-3 section at the next level-2 or level-3 heading', () => {
+  const body =
+    '## Goal\n### Acceptance criteria\n- [ ] in\n#### Detail\n- [ ] also in\n### Notes\n- [ ] out';
+  assert.deepEqual(
+    parseAcceptanceCriteria(body).map((c) => c.text),
+    ['in', 'also in'],
+  );
+});
+
+test('parseAcceptanceCriteria does not treat "#hashtag" lines as headings', () => {
+  assert.deepEqual(
+    parseAcceptanceCriteria('## Acceptance criteria\n#nospace\n- [ ] still in').map((c) => c.text),
+    ['still in'],
+  );
+});
+
 test('parseAcceptanceCriteria falls back to all checkboxes without a heading', () => {
   assert.deepEqual(parseAcceptanceCriteria('- [ ] one\ntext\n- [X] two'), [
     { text: 'one', checked: false },
