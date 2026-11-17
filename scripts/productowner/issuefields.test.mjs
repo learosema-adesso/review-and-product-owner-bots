@@ -22,6 +22,11 @@ test('loadIssueField fails loudly when the field is missing or the owner is no o
   );
   const user = { graphql: async () => ({ organization: null }) };
   await assert.rejects(loadIssueField({ github: user, org: 'me', name: 'Priority' }), /not found/);
+  // an incomplete answer gives the same descriptive error, not a TypeError
+  for (const organization of [{ issueFields: null }, { issueFields: {} }, {}]) {
+    const github = { graphql: async () => ({ organization }) };
+    await assert.rejects(loadIssueField({ github, org: 'acme', name: 'Priority' }), /not found/);
+  }
 });
 
 test('setIssueFieldOption sends the option id and rejects unknown options', async () => {

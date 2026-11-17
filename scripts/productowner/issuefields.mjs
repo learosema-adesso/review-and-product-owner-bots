@@ -13,7 +13,7 @@ export async function loadIssueField({ github, org, name }) {
     }`,
     { org },
   );
-  const field = data.organization?.issueFields.nodes.find(
+  const field = data.organization?.issueFields?.nodes?.find(
     (f) => f?.options && f.name.toLowerCase() === name.toLowerCase(),
   );
   if (!field) throw new Error(`Issue field "${name}" not found in organization ${org}`);
