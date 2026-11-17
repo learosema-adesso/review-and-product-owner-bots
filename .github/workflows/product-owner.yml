@@ -1,0 +1,75 @@
+name: Product Owner
+
+on:
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: 'Rough direction for new features (e.g. "teams should be able to vote on meeting times")'
+        required: true
+        type: string
+      max_tickets:
+        description: 'Maximum number of tickets to create (1-12)'
+        required: false
+        default: '6'
+        type: string
+      dry_run:
+        description: 'Only show the plan in the job summary, do not create anything'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write # create issues and link sub-issues
+
+# Two runs at the same time could create the same tickets twice
+concurrency:
+  group: product-owner
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts --prefix scripts
+
+      - name: Run Product Owner
+        uses: actions/github-script@v9
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Personal access token with the "project" scope: the workflow token cannot write to
+          # Projects. Without it, tickets are still created, just not added to the board.
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_URL: ${{ vars.PROJECT_URL || 'https://github.com/users/learosema/projects/1' }}
+          # passed via env, never interpolated into the script, so the text cannot inject code
+          DIRECTION: ${{ inputs.direction }}
+          MAX_TICKETS: ${{ inputs.max_tickets }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const file = path.join(process.env.GITHUB_WORKSPACE, 'scripts/productowner.mjs');
+            const { productOwner } = await import(pathToFileURL(file).href);
+            await productOwner({
+              github,
+              projectGithub: process.env.PROJECT_TOKEN ? getOctokit(process.env.PROJECT_TOKEN) : null,
+              context,
+              core,
+              direction: process.env.DIRECTION,
+              maxTickets: process.env.MAX_TICKETS,
+              dryRun: process.env.DRY_RUN === 'true',
+              projectUrl: process.env.PROJECT_URL,
+            });

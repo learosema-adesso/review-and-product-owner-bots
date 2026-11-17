@@ -5,7 +5,7 @@ const MAX_FILE_BYTES = 60_000;
 const MAX_TREE_PATHS = 1500;
 
 /** Project rules BullyBot should know. Read from the base branch so a PR cannot rewrite them. */
-const GUIDELINE_FILES = [
+export const GUIDELINE_FILES = [
   '.github/bullybot.md',
   'CONTRIBUTING.md',
   'CLAUDE.md',
@@ -38,7 +38,7 @@ export function fitSections(sections, budget) {
   return out.join('\n\n');
 }
 
-async function fetchText({ github, owner, repo, path, ref }) {
+export async function fetchText({ github, owner, repo, path, ref }) {
   try {
     const { data } = await github.rest.repos.getContent({ owner, repo, path, ref });
     if (Array.isArray(data) || data.type !== 'file' || data.size > MAX_FILE_BYTES || !data.content)
@@ -49,7 +49,7 @@ async function fetchText({ github, owner, repo, path, ref }) {
   }
 }
 
-const fileBlock = (path, text) => `### ${path}\n\`\`\`\n${text}\n\`\`\``;
+export const fileBlock = (path, text) => `### ${path}\n\`\`\`\n${text}\n\`\`\``;
 
 async function fetchLinkedIssues({ github, owner, repo, pr, core }) {
   const issues = new Map();
@@ -92,7 +92,7 @@ async function fetchLinkedIssues({ github, owner, repo, pr, core }) {
   return [...issues.values()];
 }
 
-async function fetchTree({ github, owner, repo, sha, core }) {
+export async function fetchTree({ github, owner, repo, sha, core }) {
   try {
     const { data } = await github.rest.git.getTree({
       owner,

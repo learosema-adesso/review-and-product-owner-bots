@@ -1,0 +1,72 @@
+const MAX_ISSUES = 400;
+const BODY_PREVIEW = 400;
+
+/** Loads all issues (open and closed, no PRs): closed ones tell the bot what is already built. */
+export async function fetchBacklog({ github, owner, repo }) {
+  const raw = await github.paginate(github.rest.issues.listForRepo, {
+    owner,
+    repo,
+    state: 'all',
+    per_page: 100,
+  });
+  return raw
+    .filter((i) => !i.pull_request)
+    .slice(0, MAX_ISSUES)
+    .map((i) => ({
+      number: i.number,
+      title: i.title,
+      state: i.state,
+      body: i.body ?? '',
+      labels: i.labels.map((l) => (typeof l === 'string' ? l : l.name)),
+      milestone: i.milestone?.title ?? null,
+    }));
+}
+
+export async function fetchLabels({ github, owner, repo }) {
+  const labels = await github.paginate(github.rest.issues.listLabels, {
+    owner,
+    repo,
+    per_page: 100,
+  });
+  return labels.map((l) => l.name);
+}
+
+export async function fetchMilestones({ github, owner, repo }) {
+  const milestones = await github.paginate(github.rest.issues.listMilestones, {
+    owner,
+    repo,
+    state: 'open',
+    per_page: 100,
+  });
+  return milestones.map((m) => ({
+    number: m.number,
+    title: m.title,
+    description: m.description ?? '',
+  }));
+}
+
+const oneLine = (s) => s.replace(/\s+/g, ' ').trim();
+
+/**
+ * Backlog as compact text. Open issues get a short preview of their body,
+ * closed ones only a title line (they are done, the code shows the rest).
+ */
+export function formatBacklog(issues) {
+  const line = (i) => {
+    const meta = [...i.labels, i.milestone].filter(Boolean).join(', ');
+    return `#${i.number} ${i.title}${meta ? ` [${meta}]` : ''}`;
+  };
+  const open = issues.filter((i) => i.state === 'open');
+  const closed = issues.filter((i) => i.state !== 'open');
+
+  const openText = open
+    .map((i) => `${line(i)}\n  ${oneLine(i.body).slice(0, BODY_PREVIEW) || '(no description)'}`)
+    .join('\n');
+  return {
+    open: openText,
+    closed: closed.map(line).join('\n'),
+  };
+}
+
+export const formatMilestones = (milestones) =>
+  milestones.map((m) => `- ${m.title}${m.description ? `: ${m.description}` : ''}`).join('\n');
