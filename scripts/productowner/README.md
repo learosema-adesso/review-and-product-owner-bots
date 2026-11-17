@@ -62,27 +62,32 @@ Optional environment overrides, read by both bots: `GEMINI_MODEL`, `GEMINI_PROJE
 
 ### 2. Token for the project board (recommended)
 
-GitHub's built-in workflow token cannot write to GitHub Projects (and in practice cannot read the
-organization's issue fields either), so Status, Size and Priority need a personal access token. Without one, the Product Owner still creates and links
-the issues, it just does not set the board fields (and tells you so in the job summary).
+GitHub's built-in workflow token cannot write to GitHub Projects and cannot read the organization's
+issue fields either, so Status, Size and Priority need a personal access token. Without one, the
+Product Owner still creates and links the issues, it just does not set these fields (and tells you
+so in the job log).
 
-1. Open **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
-   and choose **Generate new token (classic)**.
-2. Give it a name like `product-owner`, an expiry, and the scopes **`project`** (read and write
-   access to projects) and **`repo`** (so the token may set Priority on issues of a private
-   repository; check the first run, a warning tells you if it is not enough).
-3. Create the token as a member of the organization with write access to the board.
-4. In the repository, add it as the secret `PROJECT_TOKEN`.
+**Fine-grained token (recommended, tested):**
 
-A **fine-grained token** also works for an organization board and gives less access: choose the
-organization as the **resource owner** and only this repository, then set **Organization
-permissions → Projects: Read and write**, **Repository permissions → Issues: Read and write**, and
-the organization permission for issue fields if your token form lists one. Fine-grained tokens
-cannot access boards owned by a user account.
+1. Open **GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens**
+   and choose **Generate new token**.
+2. Choose the organization as the **resource owner**, an expiry, and **Only select repositories**
+   with this repository. The organization may need to allow fine-grained tokens and approve the
+   request.
+3. Set these permissions, and no others:
+   - **Organization permissions → Projects: Read and write** (Status and Size on the board)
+   - **Organization permissions → Issue fields: Read** (finds the Priority field)
+   - **Repository permissions → Issues: Read and write** (sets the Priority value on an issue)
+4. In the repository, add the token as the secret `PROJECT_TOKEN`.
+
+Fine-grained tokens cannot access boards owned by a user account. For those, use a classic token.
+
+**Classic token (alternative, not tested with Priority):** the scopes **`project`** and **`repo`**
+should cover the same. It is coarser, because it reaches every repository and project you can access.
 
 The issues themselves are created with the workflow token; the board token is used for the board and
-for setting Priority. Set a reminder for the expiry date, a run with an expired token shows up as a
-board warning.
+for setting Priority. Set a reminder for the expiry date: a run with an expired token shows up as a
+warning.
 
 ### 3. Project board
 
@@ -144,17 +149,17 @@ Only one run at a time is allowed, further runs wait in the queue.
 
 ## Troubleshooting
 
-| Symptom                                      | Likely cause and fix                                                                                                                                     |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY secret is missing!`          | Add the secret, see setup step 1.                                                                                                                        |
-| Warning: `PROJECT_URL is not set ...`        | Set the repository variable, see step 3. Issues were created but not put on a board.                                                                     |
-| Warning: `PROJECT_TOKEN is not set ...`      | Add the token, see step 2. Issues were created but not set up on the board.                                                                              |
-| Warning: `Project board not usable: ...`     | The token has no access to the board, expired, or `PROJECT_URL` is wrong.                                                                                |
-| Warning: `Priority was not set on any issue` | The token may not read issue fields (`Resource not accessible by integration`), see step 2, or the organization has no Priority issue field, see step 3. |
-| Warning: `board has no option for Size=M`    | The board field or option is missing or named differently, see step 3.                                                                                   |
-| `No ticket could be created`                 | Every ticket failed. The job summary lists the errors, usually missing permissions.                                                                      |
-| No tickets, only a summary                   | The direction was vague, or everything already exists. The summary says what it needs.                                                                   |
-| Ticket has no labels or milestone            | The model named one that does not exist, so it was dropped on purpose.                                                                                   |
+| Symptom                                      | Likely cause and fix                                                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY secret is missing!`          | Add the secret, see setup step 1.                                                                                                                                    |
+| Warning: `PROJECT_URL is not set ...`        | Set the repository variable, see step 3. Issues were created but not put on a board.                                                                                 |
+| Warning: `PROJECT_TOKEN is not set ...`      | Add the token, see step 2. Issues were created but not set up on the board.                                                                                          |
+| Warning: `Project board not usable: ...`     | The token has no access to the board, expired, or `PROJECT_URL` is wrong.                                                                                            |
+| Warning: `Priority was not set on any issue` | The token lacks a permission (`Resource not accessible by integration`), see the permissions in step 2, or the organization has no Priority issue field, see step 3. |
+| Warning: `board has no option for Size=M`    | The board field or option is missing or named differently, see step 3.                                                                                               |
+| `No ticket could be created`                 | Every ticket failed. The job summary lists the errors, usually missing permissions.                                                                                  |
+| No tickets, only a summary                   | The direction was vague, or everything already exists. The summary says what it needs.                                                                               |
+| Ticket has no labels or milestone            | The model named one that does not exist, so it was dropped on purpose.                                                                                               |
 
 ## Files
 
