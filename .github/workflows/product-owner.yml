@@ -51,7 +51,7 @@ jobs:
           # Personal access token with the "project" scope: the workflow token cannot write to
           # Projects. Without it, tickets are still created, just not added to the board.
           PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
-          PROJECT_URL: ${{ vars.PROJECT_URL || 'https://github.com/users/learosema/projects/1' }}
+          PROJECT_URL: ${{ vars.PROJECT_URL }}
           # passed via env, never interpolated into the script, so the text cannot inject code
           DIRECTION: ${{ inputs.direction }}
           MAX_TICKETS: ${{ inputs.max_tickets }}

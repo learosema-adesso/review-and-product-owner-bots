@@ -82,8 +82,8 @@ Set a reminder for the expiry date, a run with an expired token shows up as a bo
 
 The board is configured with the repository variable `PROJECT_URL` (**Settings → Secrets and
 variables → Actions → Variables**), for example `https://github.com/users/<login>/projects/1` or
-`https://github.com/orgs/<org>/projects/1`. If it is not set, the workflow uses the Panic Planner
-board.
+`https://github.com/orgs/<org>/projects/1`. There is deliberately no default: if it is not set,
+tickets are still created but not added to any board, and the job summary says so.
 
 The board needs these single-select fields; missing ones are skipped with a warning:
 
@@ -129,6 +129,7 @@ Only one run at a time is allowed, further runs wait in the queue.
 | Symptom                                        | Likely cause and fix                                                                   |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `GEMINI_API_KEY secret is missing!`            | Add the secret, see setup step 1.                                                      |
+| Warning: `PROJECT_URL is not set ...`          | Set the repository variable, see step 3. Issues were created but not put on a board.   |
 | Warning: `PROJECT_TOKEN is not set ...`        | Add the token, see step 2. Issues were created but not set up on the board.            |
 | Warning: `Project board not usable: ...`       | The token has no access to the board, expired, or `PROJECT_URL` is wrong.              |
 | Warning: `board has no option for Priority=P1` | The board field or option is missing or named differently, see step 3.                 |

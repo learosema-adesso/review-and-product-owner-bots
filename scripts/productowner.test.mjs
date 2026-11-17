@@ -225,6 +225,27 @@ test('without a project token tickets are still created and the gap is reported'
   assert.equal(core.failed, null);
 });
 
+test('without a project URL tickets are created and the missing board is reported', async () => {
+  const github = fakeGithub();
+  const core = fakeCore();
+  const projectGithub = {
+    graphql: async () => {
+      throw new Error('must not be called');
+    },
+  };
+  await productOwner({
+    github,
+    projectGithub,
+    context,
+    core,
+    direction: 'x',
+    ask: async () => answer,
+  });
+  assert.equal(github.created.length, 1);
+  assert.ok(core.warnings.some((w) => /PROJECT_URL/.test(w)));
+  assert.equal(core.failed, null);
+});
+
 test('one failing ticket does not stop the rest, but all failing fails the run', async () => {
   const two = { ...answer, tickets: [answer.tickets[0], { ...answer.tickets[0], title: 'Other' }] };
   const partial = fakeCore();

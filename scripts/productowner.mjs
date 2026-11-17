@@ -217,8 +217,10 @@ async function createTickets({ github, owner, repo, plan, labels }) {
 async function placeOnBoard({ projectGithub, projectUrl, created, core }) {
   const ref = parseProjectUrl(projectUrl);
   if (!ref) {
-    core.info('No valid PROJECT_URL set: tickets are created but not added to a board.');
-    return [];
+    return [
+      'PROJECT_URL is not set or not a valid project URL, so the issues were not added to a project board ' +
+        '(set the repository variable, e.g. https://github.com/users/<login>/projects/1).',
+    ];
   }
   if (!projectGithub) {
     return [
