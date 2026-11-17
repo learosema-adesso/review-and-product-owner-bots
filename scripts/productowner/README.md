@@ -1,0 +1,157 @@
+# Product Owner
+
+The Product Owner is a friendly bot that turns a rough idea into backlog tickets. You tell it
+roughly what you want to build, it looks at what already exists, and it files small, well-formed
+tickets with acceptance criteria. It is BullyBot's nicer colleague, and the two work together:
+the criteria it writes are exactly what BullyBot checks pull requests against.
+
+It runs only when you start it. It never reacts to issues, comments or pull requests on its own.
+
+## What it does
+
+1. **Reads the project.** Open and closed issues, labels, milestones, the README, project
+   guidelines (`.github/bullybot.md`, `CONTRIBUTING.md`, `CLAUDE.md`, ...), recent commits, the file
+   tree and the source of the app on the default branch.
+2. **Plans.** It cuts your direction into small tickets that fit into one pull request each. Ideas
+   that already exist in the code or the backlog are not turned into tickets, they are listed as
+   skipped with a reason.
+3. **Checks its own work.** Drafts without acceptance criteria and duplicates of existing issues
+   or of other drafts are discarded. Labels, milestones, sizes and issue references that do not
+   exist are dropped, so nothing is made up.
+4. **Creates the issues.** Each ticket is linked as a sub-issue of an existing open epic, or of a
+   new epic if the direction is big enough to deserve one.
+5. **Puts them on the board** in **Backlog**, with Priority and Size already set, so nobody has to
+   debate XS versus S in a meeting.
+6. **Reports** what it did, what it skipped and what went wrong in the job summary of the run.
+
+### What a ticket looks like
+
+```markdown
+## Goal
+
+As a team member, I want to vote on proposed meeting times, so that we find a slot everybody can attend.
+
+## Acceptance criteria
+
+- [ ] A member can vote once per proposed time
+- [ ] Changing a vote replaces the earlier one
+- [ ] Voting works with the keyboard and the options have accessible labels
+
+## Out of scope
+
+- Ranking the options
+
+## Notes
+
+Related: #42
+```
+
+The `## Acceptance criteria` checkbox list is the format BullyBot reads.
+
+## Setup
+
+You need to do this once.
+
+### 1. Gemini API key
+
+Add the repository secret `GEMINI_API_KEY` (**Settings → Secrets and variables → Actions → New
+repository secret**). It is the same secret BullyBot uses, so if BullyBot works, this is done.
+
+Optional environment overrides, read by both bots: `GEMINI_MODEL`, `GEMINI_PROJECT_ID` and
+`GEMINI_LOCATION`.
+
+### 2. Token for the project board (recommended)
+
+GitHub's built-in workflow token cannot write to GitHub Projects, so Status, Priority and Size can
+only be set with a personal access token. Without one, the Product Owner still creates and links
+the issues, it just does not set the board fields (and tells you so in the job summary).
+
+1. Open **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
+   and choose **Generate new token (classic)**.
+2. Give it a name like `product-owner`, an expiry, and the scope **`project`** (read and write
+   access to projects). No other scopes are needed.
+3. Create the token as the **owner of the project board** (a user or an organization member with
+   write access to the board). Fine-grained tokens do not work for boards owned by a user
+   account.
+4. In the repository, add it as the secret `PROJECT_TOKEN`.
+
+The token is used for the board only; the issues themselves are created with the workflow token.
+Set a reminder for the expiry date, a run with an expired token shows up as a board warning.
+
+### 3. Project board
+
+The board is configured with the repository variable `PROJECT_URL` (**Settings → Secrets and
+variables → Actions → Variables**), for example `https://github.com/users/<login>/projects/1` or
+`https://github.com/orgs/<org>/projects/1`. If it is not set, the workflow uses the Panic Planner
+board.
+
+The board needs these single-select fields; missing ones are skipped with a warning:
+
+| Field    | Options used by the bot   |
+| -------- | ------------------------- |
+| Status   | `Backlog`                 |
+| Priority | `P0`, `P1`, `P2`          |
+| Size     | `XS`, `S`, `M`, `L`, `XL` |
+
+Matching is case-insensitive. If your board already adds new issues automatically (a project
+workflow), that works fine; the bot sets the fields on the existing item.
+
+### 4. Repository settings
+
+- Actions must be enabled for the repository. The workflow declares the permissions it needs
+  (`contents: read`, `issues: write`) itself, no change to the default workflow permissions is needed.
+- The labels and milestones you want the bot to use must already exist. It never creates labels
+  or milestones, it only picks from the existing ones (`epic` is used for new epics).
+
+## Running it
+
+**Actions → Product Owner → Run workflow**
+
+| Input         | Meaning                                                                          |
+| ------------- | -------------------------------------------------------------------------------- |
+| `direction`   | Required. Your rough idea, a sentence or a few paragraphs (max 4000 characters). |
+| `max_tickets` | Upper limit of tickets to create. Default 6, hard limit 12.                      |
+| `dry_run`     | Only show the plan in the job summary, create nothing.                           |
+
+Good directions describe the outcome and who benefits, not the implementation:
+
+> Teams should be able to propose several meeting times and vote on them. Keep it accessible.
+
+Start with a **dry run** the first time and after changing the prompt: read the plan in the job
+summary, then run again without `dry_run`. Two runs with the same direction can produce different
+tickets, so don't expect the second run to match the dry run word for word. Duplicates of issues
+that already exist are filtered, which makes a repeated run safe, though not free.
+
+Only one run at a time is allowed, further runs wait in the queue.
+
+## Troubleshooting
+
+| Symptom                                        | Likely cause and fix                                                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY secret is missing!`            | Add the secret, see setup step 1.                                                      |
+| Warning: `PROJECT_TOKEN is not set ...`        | Add the token, see step 2. Issues were created but not set up on the board.            |
+| Warning: `Project board not usable: ...`       | The token has no access to the board, expired, or `PROJECT_URL` is wrong.              |
+| Warning: `board has no option for Priority=P1` | The board field or option is missing or named differently, see step 3.                 |
+| `No ticket could be created`                   | Every ticket failed. The job summary lists the errors, usually missing permissions.    |
+| No tickets, only a summary                     | The direction was vague, or everything already exists. The summary says what it needs. |
+| Ticket has no labels or milestone              | The model named one that does not exist, so it was dropped on purpose.                 |
+
+## Files
+
+| File                                  | Purpose                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `.github/workflows/product-owner.yml` | The manually triggered workflow.                                        |
+| `scripts/productowner.mjs`            | Orchestration: persona, prompt, creating issues, run report.            |
+| `scripts/productowner/context.mjs`    | Reads the product (README, guidelines, source) from the default branch. |
+| `scripts/productowner/backlog.mjs`    | Loads and formats issues, labels and milestones.                        |
+| `scripts/productowner/tickets.mjs`    | Validates the model's plan and renders issue bodies.                    |
+| `scripts/productowner/project.mjs`    | Adds issues to the board and sets its fields.                           |
+| `scripts/lib/gemini.mjs`              | Gemini client with retries, shared with BullyBot.                       |
+
+## Tests
+
+```sh
+npm test --prefix scripts
+```
+
+The tests use a fake GitHub client and a fake model, so they need neither network nor API keys.
