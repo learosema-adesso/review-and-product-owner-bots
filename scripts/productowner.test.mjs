@@ -531,3 +531,27 @@ test('the model must do the overlap check first, and a duplicate overlap discard
   ]);
   assert.match(core.infos.join('\n'), /Discarded drafts:\*\*\n- Vote on times: duplicate of #81/);
 });
+
+test('the prompt defines "covered" and does not accept indirect possibilities as coverage', async () => {
+  let system;
+  await productOwner({
+    github: fakeGithub(),
+    context,
+    core: fakeCore(),
+    direction: 'x',
+    dryRun: true,
+    ask: async (opts) => {
+      system = opts.system;
+      return answer;
+    },
+  });
+  assert.match(system, /Never create a ticket for something that already exists/);
+  assert.match(
+    system,
+    /only if an existing issue or the code delivers the behavior as a feature of its own/,
+  );
+  assert.match(system, /merely possible indirectly/);
+  assert.match(system, /NOT covered/);
+  assert.match(system, /relation "extends"/);
+  assert.match(system, /says which part of it delivers the behavior/);
+});

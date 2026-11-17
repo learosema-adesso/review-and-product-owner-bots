@@ -41,7 +41,11 @@ const INSTRUCTIONS =
   'Rules for tickets: ' +
   '(1) Each ticket is one vertical slice a developer can finish in a single pull request; split anything bigger. ' +
   '(2) Never create a ticket for something that already exists in the code or the backlog (open or closed). ' +
-  'Put such ideas into "skipped" with the issue number or file that covers them. ' +
+  'An idea counts as covered only if an existing issue or the code delivers the behavior as a feature of its own, ' +
+  'the way the user would experience it. Behavior that is merely possible indirectly (by configuring something ' +
+  'else, or as a side effect of another feature) is NOT covered: create a small ticket for the intent and ' +
+  'relate it to the existing issue with the relation "extends", saying in "why" how it differs. ' +
+  'Put covered ideas into "skipped"; the reason names the issue or file and says which part of it delivers the behavior. ' +
   '(3) story: a short user story ("As a <role>, I want <goal>, so that <benefit>") followed by one or two sentences ' +
   'of context. Name real parts of the app (components, routes, files) when that helps. ' +
   '(4) criteria: 3 to 8 acceptance criteria, each one observable and testable by an automated test or a clear manual check, ' +
