@@ -123,6 +123,12 @@ Good directions describe the outcome and who benefits, not the implementation:
 
 > Teams should be able to propose several meeting times and vote on them. Keep it accessible.
 
+**Where to find the result:** the plan is printed in the job log of the run (the table of tickets,
+what was skipped and why, what was discarded, and any problems), and the full text of every planned
+ticket is in the collapsed group "Planned tickets in full". The same report is on the run's summary
+page. If a plan surprises you, the group "Raw answer of the model" shows what the model returned
+before it was checked.
+
 Start with a **dry run** the first time and after changing the prompt: read the plan in the job
 summary, then run again without `dry_run`. Two runs with the same direction can produce different
 tickets, so don't expect the second run to match the dry run word for word. Duplicates of issues

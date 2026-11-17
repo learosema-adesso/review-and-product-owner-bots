@@ -143,6 +143,28 @@ export function renderRunReport({ direction, plan, created, dryRun }) {
   return lines.join('\n\n');
 }
 
+/** Full text of every planned ticket, so a dry run can be judged without creating anything. */
+export function renderPlanDetails(plan) {
+  return plan.tickets
+    .map((t) => {
+      const meta = [
+        `Priority: ${t.priority ?? '-'}`,
+        `Size: ${t.size ?? '-'}`,
+        `Milestone: ${t.milestone?.title ?? '-'}`,
+        `Labels: ${t.labels.join(', ') || '-'}`,
+      ].join(' | ');
+      return `### ${t.title}\n${meta}\n\n${renderTicketBody(t)}`;
+    })
+    .join('\n\n');
+}
+
+/** Prints text as a collapsible group in the job log (plain output where groups do not exist). */
+function logGroup(core, title, text) {
+  core.startGroup?.(title);
+  core.info(text);
+  core.endGroup?.();
+}
+
 async function createIssue({ github, owner, repo, title, body, labels, milestone }) {
   const { data } = await github.rest.issues.create({
     owner,
@@ -384,6 +406,7 @@ export async function productOwner({
     return;
   }
 
+  logGroup(core, 'Raw answer of the model', JSON.stringify(raw, null, 2));
   const plan = sanitizePlan(raw, { labels, milestones, issues, max });
   core.info(`Plan: ${plan.tickets.length} tickets, ${plan.dropped.length} discarded.`);
 
@@ -399,8 +422,17 @@ export async function productOwner({
     if (!created.tickets.some((t) => t.number)) core.setFailed('No ticket could be created.');
   }
 
+  // The report goes to the job log AND the job summary: the log is what people (and tools) can read
   const report = renderRunReport({ direction, plan, created, dryRun });
-  if (core.summary) await core.summary.addRaw(report, true).write();
-  else core.info(report);
+  const details = renderPlanDetails(plan);
+  core.info(`\n${report}`);
+  if (details) logGroup(core, 'Planned tickets in full', details);
+  if (core.summary) {
+    try {
+      await core.summary.addRaw(details ? `${report}\n\n${details}` : report, true).write();
+    } catch (error) {
+      core.warning(`Writing the job summary failed: ${error.message}`);
+    }
+  }
   return { plan, created };
 }

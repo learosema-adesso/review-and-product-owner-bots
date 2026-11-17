@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { productOwner, renderRunReport } from './productowner.mjs';
+import { productOwner, renderRunReport, renderPlanDetails } from './productowner.mjs';
 
 const b64 = (s) => Buffer.from(s).toString('base64');
 
@@ -98,6 +98,11 @@ function fakeCore() {
     failed: null,
     warnings: [],
     infos: [],
+    groups: [],
+    startGroup(title) {
+      this.groups.push(title);
+    },
+    endGroup() {},
     info(m) {
       this.infos.push(m);
     },
@@ -375,4 +380,52 @@ test('renderRunReport shows tickets, skipped ideas and discarded drafts', () => 
   assert.match(report, /- Dupe: duplicate/);
   assert.match(report, /- oops/);
   assert.match(renderRunReport({ direction: 'x', plan, created: null, dryRun: true }), /dry run/);
+});
+
+test('the plan is printed to the job log, in full, even in a dry run', async () => {
+  const core = fakeCore();
+  await productOwner({
+    github: fakeGithub(),
+    context,
+    core,
+    direction: 'voting',
+    dryRun: true,
+    ask: async () => answer,
+  });
+  const log = core.infos.join('\n');
+  assert.match(log, /dry run, nothing was created/);
+  assert.match(log, /\*\*Not turned into tickets:\*\*\n- Login: exists \(#5\)/);
+  assert.match(
+    log,
+    /### Vote on times\nPriority: High \| Size: S \| Milestone: M2: Teams \| Labels: frontend/,
+  );
+  assert.match(log, /- \[ \] One vote per option/);
+  assert.deepEqual(core.groups, ['Raw answer of the model', 'Planned tickets in full']);
+  assert.match(log, /"epicNumber": 81/);
+});
+
+test('a failing job summary is a warning, not a failure', async () => {
+  const core = fakeCore();
+  core.summary = {
+    addRaw() {
+      return this;
+    },
+    write: async () => {
+      throw new Error('no summary file');
+    },
+  };
+  await productOwner({
+    github: fakeGithub(),
+    context,
+    core,
+    direction: 'x',
+    dryRun: true,
+    ask: async () => answer,
+  });
+  assert.ok(core.warnings.some((w) => /Writing the job summary failed: no summary file/.test(w)));
+  assert.equal(core.failed, null);
+});
+
+test('renderPlanDetails is empty without tickets', () => {
+  assert.equal(renderPlanDetails({ tickets: [] }), '');
 });
