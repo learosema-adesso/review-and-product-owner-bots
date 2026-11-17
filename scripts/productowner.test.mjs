@@ -10,7 +10,7 @@ function fakeGithub({ failCreate = [], noPriorityField = false } = {}) {
   const requests = [];
   const priorities = [];
   const listForRepo = async () => {};
-  const listLabels = async () => {};
+  const listLabelsForRepo = async () => {};
   const listMilestones = async () => {};
   const files = {
     'README.md': '# Panic Planner',
@@ -59,7 +59,7 @@ function fakeGithub({ failCreate = [], noPriorityField = false } = {}) {
           },
           { number: 5, title: 'Sign in', state: 'closed', body: '', labels: [], milestone: null },
         ];
-      if (fn === listLabels) return [{ name: 'frontend' }, { name: 'epic' }];
+      if (fn === listLabelsForRepo) return [{ name: 'frontend' }, { name: 'epic' }];
       if (fn === listMilestones) return [{ number: 2, title: 'M2: Teams', description: '' }];
       throw new Error('unexpected paginate');
     },
@@ -67,7 +67,7 @@ function fakeGithub({ failCreate = [], noPriorityField = false } = {}) {
     rest: {
       issues: {
         listForRepo,
-        listLabels,
+        listLabelsForRepo,
         listMilestones,
         create: async (params) => {
           if (failCreate.includes(params.title)) throw new Error('nope');

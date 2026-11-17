@@ -1,9 +1,19 @@
 const MAX_ISSUES = 400;
+
+/**
+ * `paginate` does not complain when it gets `undefined` as the method (a typo in the method name):
+ * it silently requests the API root instead. So fail loudly before that can happen.
+ */
+function paginateWith(github, method, params) {
+  const fn = github.rest.issues[method];
+  if (typeof fn !== 'function') throw new Error(`Octokit has no issues.${method}()`);
+  return github.paginate(fn, params);
+}
 const BODY_PREVIEW = 400;
 
 /** Loads all issues (open and closed, no PRs): closed ones tell the bot what is already built. */
 export async function fetchBacklog({ github, owner, repo }) {
-  const raw = await github.paginate(github.rest.issues.listForRepo, {
+  const raw = await paginateWith(github, 'listForRepo', {
     owner,
     repo,
     state: 'all',
@@ -23,7 +33,7 @@ export async function fetchBacklog({ github, owner, repo }) {
 }
 
 export async function fetchLabels({ github, owner, repo }) {
-  const labels = await github.paginate(github.rest.issues.listLabels, {
+  const labels = await paginateWith(github, 'listLabelsForRepo', {
     owner,
     repo,
     per_page: 100,
@@ -32,7 +42,7 @@ export async function fetchLabels({ github, owner, repo }) {
 }
 
 export async function fetchMilestones({ github, owner, repo }) {
-  const milestones = await github.paginate(github.rest.issues.listMilestones, {
+  const milestones = await paginateWith(github, 'listMilestones', {
     owner,
     repo,
     state: 'open',

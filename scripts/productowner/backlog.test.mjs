@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchBacklog, formatBacklog, formatMilestones } from './backlog.mjs';
+import {
+  fetchBacklog,
+  fetchLabels,
+  fetchMilestones,
+  formatBacklog,
+  formatMilestones,
+} from './backlog.mjs';
 
 test('fetchBacklog drops pull requests and flattens labels and milestones', async () => {
   const listForRepo = async () => {};
@@ -62,4 +68,30 @@ test('formatMilestones shows descriptions when present', () => {
     ]),
     '- M1: MVP\n- M2',
   );
+});
+
+test('fetchLabels uses the repository label method and returns names', async () => {
+  const listLabelsForRepo = async () => {};
+  const github = {
+    rest: { issues: { listLabelsForRepo } },
+    paginate: async (fn) => {
+      assert.equal(fn, listLabelsForRepo);
+      return [{ name: 'bug' }, { name: 'epic' }];
+    },
+  };
+  assert.deepEqual(await fetchLabels({ github, owner: 'o', repo: 'r' }), ['bug', 'epic']);
+});
+
+test('loading fails loudly when the client lacks the method, instead of paginating the API root', async () => {
+  // like real Octokit: paginate(undefined) would not throw, it requests "/" and returns one object
+  const github = { rest: { issues: {} }, paginate: async () => [{ current_user_url: 'x' }] };
+  await assert.rejects(
+    fetchLabels({ github, owner: 'o', repo: 'r' }),
+    /no issues\.listLabelsForRepo/,
+  );
+  await assert.rejects(
+    fetchMilestones({ github, owner: 'o', repo: 'r' }),
+    /no issues\.listMilestones/,
+  );
+  await assert.rejects(fetchBacklog({ github, owner: 'o', repo: 'r' }), /no issues\.listForRepo/);
 });
