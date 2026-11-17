@@ -69,19 +69,20 @@ the issues, it just does not set the board fields (and tells you so in the job s
 1. Open **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
    and choose **Generate new token (classic)**.
 2. Give it a name like `product-owner`, an expiry, and the scopes **`project`** (read and write
-   access to projects) and **`repo`** (so the token may set Priority on issues of a private repository; check the first
-   run, a warning tells you if it is not enough).
+   access to projects) and **`repo`** (so the token may set Priority on issues of a private
+   repository; check the first run, a warning tells you if it is not enough).
 3. Create the token as a member of the organization with write access to the board.
+4. In the repository, add it as the secret `PROJECT_TOKEN`.
 
 A **fine-grained token** also works for an organization board and gives less access: choose the
 organization as the **resource owner** and only this repository, then set **Organization
 permissions → Projects: Read and write**, **Repository permissions → Issues: Read and write**, and
 the organization permission for issue fields if your token form lists one. Fine-grained tokens
-cannot access boards owned by a user account. 4. In the repository, add it as the secret `PROJECT_TOKEN`.
+cannot access boards owned by a user account.
 
 The issues themselves are created with the workflow token; the board token is used for the board and
-for setting Priority.
-Set a reminder for the expiry date, a run with an expired token shows up as a board warning.
+for setting Priority. Set a reminder for the expiry date, a run with an expired token shows up as a
+board warning.
 
 ### 3. Project board
 
