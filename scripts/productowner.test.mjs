@@ -267,6 +267,76 @@ test('sets the organization Priority field on the new issues, with or without a 
   assert.deepEqual(github.priorities, [{ issue: 'N100', field: 'PF', option: 'h' }]);
 });
 
+/** A board-token client that only knows the organization issue field. */
+function boardClient({ fail = false } = {}) {
+  const priorities = [];
+  return {
+    priorities,
+    graphql: async (q, vars) => {
+      if (fail) throw new Error('Resource not accessible by integration');
+      if (q.includes('organization(')) {
+        return {
+          organization: {
+            issueFields: {
+              nodes: [{ id: 'PF', name: 'Priority', options: [{ id: 'h', name: 'High' }] }],
+            },
+          },
+        };
+      }
+      priorities.push(vars);
+      return {};
+    },
+  };
+}
+
+test('Priority is set with the board token when there is one', async () => {
+  const github = fakeGithub({ noPriorityField: true }); // the workflow token could not do it
+  const projectGithub = boardClient();
+  const core = fakeCore();
+  await productOwner({
+    github,
+    projectGithub,
+    context,
+    core,
+    direction: 'x',
+    ask: async () => answer,
+  });
+  assert.deepEqual(projectGithub.priorities, [{ issue: 'N100', field: 'PF', option: 'h' }]);
+  assert.deepEqual(github.priorities, []);
+  assert.ok(!core.warnings.some((w) => /Priority/.test(w)));
+});
+
+test('Priority falls back to the workflow token when the board token cannot do it', async () => {
+  const github = fakeGithub();
+  const core = fakeCore();
+  await productOwner({
+    github,
+    projectGithub: boardClient({ fail: true }),
+    context,
+    core,
+    direction: 'x',
+    ask: async () => answer,
+  });
+  assert.deepEqual(github.priorities, [{ issue: 'N100', field: 'PF', option: 'h' }]);
+  assert.ok(!core.warnings.some((w) => /Priority/.test(w)));
+});
+
+test('when no token can set Priority, one warning names every failure', async () => {
+  const github = fakeGithub({ noPriorityField: true });
+  const core = fakeCore();
+  await productOwner({
+    github,
+    projectGithub: boardClient({ fail: true }),
+    context,
+    core,
+    direction: 'x',
+    ask: async () => answer,
+  });
+  const warnings = core.warnings.filter((w) => /Priority was not set/.test(w));
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Resource not accessible by integration \| .*not found/);
+});
+
 test('a missing Priority field is reported once and does not stop the run', async () => {
   const github = fakeGithub({ noPriorityField: true });
   const core = fakeCore();

@@ -53,6 +53,9 @@ const INSTRUCTIONS =
   'labels and milestone: use only names from the lists you are given, pick the milestone the ticket fits best. ' +
   '(8) relatedIssues: numbers of existing issues this ticket depends on or touches, only numbers from the backlog. ' +
   '(9) Follow the conventions and decisions in the project guidelines and existing issues. ' +
+  '(10) Describe behavior, not implementation: do not prescribe API routes, field names, data models, libraries or ' +
+  'architecture unless the project guidelines or an existing issue already decide them. Put open design questions ' +
+  'into the notes of the ticket as questions for the developers. ' +
   'Epic: if the tickets belong to an existing open epic from the backlog, set epicNumber to its number, ' +
   'else if there are three or more tickets that form a theme, set newEpicTitle and newEpicGoal, ' +
   'otherwise leave epicNumber 0 and the new epic fields empty. ' +
@@ -238,24 +241,32 @@ async function createTickets({ github, owner, repo, plan, labels }) {
 
 /**
  * Sets the organization issue field "Priority" on the new issues. It is a property of the issue,
- * so it works without a project token. Problems are returned, never thrown.
+ * so the board does not matter, but the token does: the workflow token usually cannot read
+ * organization issue fields, so the board token is tried first and the workflow token second.
+ * Problems are returned, never thrown.
  */
-async function setPriorities({ github, owner, created }) {
+async function setPriorities({ clients, owner, created }) {
   const todo = created.tickets.filter((t) => t.number && t.ticket.priority);
   if (!todo.length) return [];
 
-  let field;
-  try {
-    field = await loadIssueField({ github, org: owner, name: 'Priority' });
-  } catch (error) {
-    return [`Priority was not set on any issue: ${error.message}`];
+  let client, field;
+  const errors = [];
+  for (const candidate of clients) {
+    try {
+      field = await loadIssueField({ github: candidate, org: owner, name: 'Priority' });
+      client = candidate;
+      break;
+    } catch (error) {
+      errors.push(error.message.replace(/\s+/g, ' ').trim());
+    }
   }
+  if (!client) return [`Priority was not set on any issue: ${errors.join(' | ')}`];
 
   const problems = [];
   for (const { number, nodeId, ticket } of todo) {
     try {
       await setIssueFieldOption({
-        github,
+        github: client,
         issueNodeId: nodeId,
         field,
         optionName: ticket.priority,
@@ -415,7 +426,11 @@ export async function productOwner({
   if (!dryRun && plan.tickets.length) {
     created = await createTickets({ github, owner, repo, plan, labels });
     created.problems.push(
-      ...(await setPriorities({ github, owner, created })),
+      ...(await setPriorities({
+        clients: [projectGithub, github].filter(Boolean),
+        owner,
+        created,
+      })),
       ...(await placeOnBoard({ projectGithub, projectUrl, created, core })),
     );
     for (const p of created.problems) core.warning(p);
