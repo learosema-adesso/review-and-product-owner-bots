@@ -16,6 +16,7 @@ import {
   PRIORITIES,
 } from './productowner/tickets.mjs';
 import { parseProjectUrl, loadProject, addToProject } from './productowner/project.mjs';
+import { loadIssueField, setIssueFieldOption } from './productowner/issuefields.mjs';
 
 const MAX_CONTEXT_CHARS = 250_000;
 const MAX_DIRECTION_CHARS = 4_000;
@@ -48,7 +49,7 @@ const INSTRUCTIONS =
   'No vague wording like "works well" or "is user friendly". ' +
   '(5) outOfScope: what this ticket deliberately does not do, mainly where it would otherwise grow. ' +
   '(6) notes: constraints, open questions and technical hints for the developer, only if useful. ' +
-  `(7) size: ${SIZES.join('/')}, priority: ${PRIORITIES.join('/')} (P0 = blocks the product, P2 = nice to have). ` +
+  `(7) size: ${SIZES.join('/')}, priority: ${PRIORITIES.join('/')} (Urgent = blocks the product, Low = nice to have). ` +
   'labels and milestone: use only names from the lists you are given, pick the milestone the ticket fits best. ' +
   '(8) relatedIssues: numbers of existing issues this ticket depends on or touches, only numbers from the backlog. ' +
   '(9) Follow the conventions and decisions in the project guidelines and existing issues. ' +
@@ -213,6 +214,37 @@ async function createTickets({ github, owner, repo, plan, labels }) {
   return result;
 }
 
+/**
+ * Sets the organization issue field "Priority" on the new issues. It is a property of the issue,
+ * so it works without a project token. Problems are returned, never thrown.
+ */
+async function setPriorities({ github, owner, created }) {
+  const todo = created.tickets.filter((t) => t.number && t.ticket.priority);
+  if (!todo.length) return [];
+
+  let field;
+  try {
+    field = await loadIssueField({ github, org: owner, name: 'Priority' });
+  } catch (error) {
+    return [`Priority was not set on any issue: ${error.message}`];
+  }
+
+  const problems = [];
+  for (const { number, nodeId, ticket } of todo) {
+    try {
+      await setIssueFieldOption({
+        github,
+        issueNodeId: nodeId,
+        field,
+        optionName: ticket.priority,
+      });
+    } catch (error) {
+      problems.push(`#${number}: priority ${ticket.priority} not set: ${error.message}`);
+    }
+  }
+  return problems;
+}
+
 /** Puts the new issues on the project board. Needs a token with project access. */
 async function placeOnBoard({ projectGithub, projectUrl, created, core }) {
   const ref = parseProjectUrl(projectUrl);
@@ -252,7 +284,7 @@ async function placeOnBoard({ projectGithub, projectUrl, created, core }) {
       .map((t) => ({
         number: t.number,
         nodeId: t.nodeId,
-        values: { Status: 'Backlog', Priority: t.ticket.priority, Size: t.ticket.size },
+        values: { Status: 'Backlog', Size: t.ticket.size },
       })),
   ];
 
@@ -359,7 +391,10 @@ export async function productOwner({
   let created = null;
   if (!dryRun && plan.tickets.length) {
     created = await createTickets({ github, owner, repo, plan, labels });
-    created.problems.push(...(await placeOnBoard({ projectGithub, projectUrl, created, core })));
+    created.problems.push(
+      ...(await setPriorities({ github, owner, created })),
+      ...(await placeOnBoard({ projectGithub, projectUrl, created, core })),
+    );
     for (const p of created.problems) core.warning(p);
     if (!created.tickets.some((t) => t.number)) core.setFailed('No ticket could be created.');
   }

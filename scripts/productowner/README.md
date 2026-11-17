@@ -20,8 +20,8 @@ It runs only when you start it. It never reacts to issues, comments or pull requ
    exist are dropped, so nothing is made up.
 4. **Creates the issues.** Each ticket is linked as a sub-issue of an existing open epic, or of a
    new epic if the direction is big enough to deserve one.
-5. **Puts them on the board** in **Backlog**, with Priority and Size already set, so nobody has to
-   debate XS versus S in a meeting.
+5. **Sets Priority and Size** (Urgent to Low, XS to XL), so nobody has to debate XS versus S in a
+   meeting, and **puts the tickets on the board** in **Backlog**.
 6. **Reports** what it did, what it skipped and what went wrong in the job summary of the run.
 
 ### What a ticket looks like
@@ -62,8 +62,8 @@ Optional environment overrides, read by both bots: `GEMINI_MODEL`, `GEMINI_PROJE
 
 ### 2. Token for the project board (recommended)
 
-GitHub's built-in workflow token cannot write to GitHub Projects, so Status, Priority and Size can
-only be set with a personal access token. Without one, the Product Owner still creates and links
+GitHub's built-in workflow token cannot write to GitHub Projects, so Status and Size can only be
+set with a personal access token. Without one, the Product Owner still creates and links
 the issues, it just does not set the board fields (and tells you so in the job summary).
 
 1. Open **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
@@ -87,11 +87,17 @@ tickets are still created but not added to any board, and the job summary says s
 
 The board needs these single-select fields; missing ones are skipped with a warning:
 
-| Field    | Options used by the bot   |
-| -------- | ------------------------- |
-| Status   | `Backlog`                 |
-| Priority | `P0`, `P1`, `P2`          |
-| Size     | `XS`, `S`, `M`, `L`, `XL` |
+| Field  | Options used by the bot   |
+| ------ | ------------------------- |
+| Status | `Backlog`                 |
+| Size   | `XS`, `S`, `M`, `L`, `XL` |
+
+**Priority is different.** It is not a board field but the organization's **Priority issue field**
+(options `Urgent`, `High`, `Medium`, `Low`), which is set on the issue itself and then shows up on
+every board. The bot sets it right after creating the issue, with the workflow token, so it works
+even without `PROJECT_TOKEN`. This needs a repository that belongs to an organization with that
+issue field (**Organization settings → Issue fields**). In a personal repository, Priority is
+skipped with a warning.
 
 Matching is case-insensitive. If your board already adds new issues automatically (a project
 workflow), that works fine; the bot sets the fields on the existing item.
@@ -126,16 +132,17 @@ Only one run at a time is allowed, further runs wait in the queue.
 
 ## Troubleshooting
 
-| Symptom                                        | Likely cause and fix                                                                   |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY secret is missing!`            | Add the secret, see setup step 1.                                                      |
-| Warning: `PROJECT_URL is not set ...`          | Set the repository variable, see step 3. Issues were created but not put on a board.   |
-| Warning: `PROJECT_TOKEN is not set ...`        | Add the token, see step 2. Issues were created but not set up on the board.            |
-| Warning: `Project board not usable: ...`       | The token has no access to the board, expired, or `PROJECT_URL` is wrong.              |
-| Warning: `board has no option for Priority=P1` | The board field or option is missing or named differently, see step 3.                 |
-| `No ticket could be created`                   | Every ticket failed. The job summary lists the errors, usually missing permissions.    |
-| No tickets, only a summary                     | The direction was vague, or everything already exists. The summary says what it needs. |
-| Ticket has no labels or milestone              | The model named one that does not exist, so it was dropped on purpose.                 |
+| Symptom                                      | Likely cause and fix                                                                           |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY secret is missing!`          | Add the secret, see setup step 1.                                                              |
+| Warning: `PROJECT_URL is not set ...`        | Set the repository variable, see step 3. Issues were created but not put on a board.           |
+| Warning: `PROJECT_TOKEN is not set ...`      | Add the token, see step 2. Issues were created but not set up on the board.                    |
+| Warning: `Project board not usable: ...`     | The token has no access to the board, expired, or `PROJECT_URL` is wrong.                      |
+| Warning: `Priority was not set on any issue` | The organization has no Priority issue field, or the repository belongs to a user. See step 3. |
+| Warning: `board has no option for Size=M`    | The board field or option is missing or named differently, see step 3.                         |
+| `No ticket could be created`                 | Every ticket failed. The job summary lists the errors, usually missing permissions.            |
+| No tickets, only a summary                   | The direction was vague, or everything already exists. The summary says what it needs.         |
+| Ticket has no labels or milestone            | The model named one that does not exist, so it was dropped on purpose.                         |
 
 ## Files
 

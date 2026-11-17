@@ -28,7 +28,7 @@ const ticket = (over = {}) => ({
   labels: ['frontend'],
   milestone: 'M2',
   size: 'M',
-  priority: 'P1',
+  priority: 'High',
   ...over,
 });
 

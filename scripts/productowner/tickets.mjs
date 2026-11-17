@@ -2,7 +2,7 @@
 export const PO_MARKER = '<!-- product-owner-bot -->';
 
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL'];
-export const PRIORITIES = ['P0', 'P1', 'P2'];
+export const PRIORITIES = ['Urgent', 'High', 'Medium', 'Low'];
 
 const MAX_TITLE = 100;
 const MAX_CRITERIA = 12;

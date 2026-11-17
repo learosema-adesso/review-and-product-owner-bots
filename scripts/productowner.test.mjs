@@ -5,9 +5,10 @@ import { productOwner, renderRunReport } from './productowner.mjs';
 const b64 = (s) => Buffer.from(s).toString('base64');
 
 /** Minimal stand-in for the octokit client of actions/github-script. */
-function fakeGithub({ failCreate = [] } = {}) {
+function fakeGithub({ failCreate = [], noPriorityField = false } = {}) {
   const created = [];
   const requests = [];
+  const priorities = [];
   const listForRepo = async () => {};
   const listLabels = async () => {};
   const listMilestones = async () => {};
@@ -20,6 +21,31 @@ function fakeGithub({ failCreate = [] } = {}) {
   return {
     created,
     requests,
+    priorities,
+    graphql: async (q, vars) => {
+      if (q.includes('organization(')) {
+        return {
+          organization: {
+            issueFields: {
+              nodes: noPriorityField
+                ? []
+                : [
+                    {
+                      id: 'PF',
+                      name: 'Priority',
+                      options: [
+                        { id: 'u', name: 'Urgent' },
+                        { id: 'h', name: 'High' },
+                      ],
+                    },
+                  ],
+            },
+          },
+        };
+      }
+      priorities.push(vars);
+      return {};
+    },
     paginate: async (fn) => {
       if (fn === listForRepo)
         return [
@@ -96,9 +122,9 @@ const answer = {
       labels: ['frontend'],
       milestone: 'M2',
       size: 'S',
-      priority: 'P1',
+      priority: 'High',
     },
-    { title: 'Sign in', story: 'dupe', criteria: ['x'], labels: [], size: 'S', priority: 'P1' },
+    { title: 'Sign in', story: 'dupe', criteria: ['x'], labels: [], size: 'S', priority: 'High' },
   ],
   skipped: [{ idea: 'Login', reason: 'exists (#5)' }],
 };
@@ -166,7 +192,7 @@ test('a new epic is created first and tickets are linked to it', async () => {
   assert.equal(github.requests[0].params.issue_number, 100);
 });
 
-test('puts new issues on the board with status, priority and size', async () => {
+test('puts new issues on the board with status and size', async () => {
   const github = fakeGithub();
   const calls = [];
   const projectGithub = {
@@ -204,8 +230,7 @@ test('puts new issues on the board with status, priority and size', async () => 
   });
   const updates = calls.filter((c) => c.vars.field).map((c) => c.vars.field);
   assert.deepEqual(updates, ['S', 'Z']);
-  // the board has no Priority field: reported, not fatal
-  assert.ok(core.warnings.some((w) => /Priority=P1/.test(w)));
+  assert.deepEqual(core.warnings, []);
   assert.equal(core.failed, null);
 });
 
@@ -223,6 +248,36 @@ test('without a project token tickets are still created and the gap is reported'
   assert.equal(github.created.length, 1);
   assert.ok(core.warnings.some((w) => /PROJECT_TOKEN/.test(w)));
   assert.equal(core.failed, null);
+});
+
+test('sets the organization Priority field on the new issues, with or without a board', async () => {
+  const github = fakeGithub();
+  await productOwner({
+    github,
+    context,
+    core: fakeCore(),
+    direction: 'x',
+    ask: async () => answer,
+  });
+  assert.deepEqual(github.priorities, [{ issue: 'N100', field: 'PF', option: 'h' }]);
+});
+
+test('a missing Priority field is reported once and does not stop the run', async () => {
+  const github = fakeGithub({ noPriorityField: true });
+  const core = fakeCore();
+  await productOwner({ github, context, core, direction: 'x', ask: async () => answer });
+  assert.equal(github.created.length, 1);
+  assert.equal(core.warnings.filter((w) => /Priority was not set/.test(w)).length, 1);
+  assert.equal(core.failed, null);
+});
+
+test('a priority the field has no option for is reported per issue', async () => {
+  const github = fakeGithub();
+  const core = fakeCore();
+  const low = { ...answer, tickets: [{ ...answer.tickets[0], priority: 'Low' }] };
+  await productOwner({ github, context, core, direction: 'x', ask: async () => low });
+  assert.ok(core.warnings.some((w) => /#100: priority Low not set/.test(w)));
+  assert.deepEqual(github.priorities, []);
 });
 
 test('without a project URL tickets are created and the missing board is reported', async () => {
@@ -302,7 +357,7 @@ test('renderRunReport shows tickets, skipped ideas and discarded drafts', () => 
     summary: 'Hello.',
     epic: { existing: 81, title: 'Epic: Teams' },
     tickets: [
-      { title: 'A | B', priority: 'P1', size: 'S', milestone: { title: 'M2' }, criteria: ['x'] },
+      { title: 'A | B', priority: 'High', size: 'S', milestone: { title: 'M2' }, criteria: ['x'] },
     ],
     skipped: [{ idea: 'Login', reason: 'exists' }],
     dropped: [{ title: 'Dupe', reason: 'duplicate' }],
@@ -315,7 +370,7 @@ test('renderRunReport shows tickets, skipped ideas and discarded drafts', () => 
   });
   assert.match(report, /> a\n> b/);
   assert.match(report, /existing #81/);
-  assert.match(report, /\| #7 A \\\| B \| P1 \| S \| M2 \| 1 \|/);
+  assert.match(report, /\| #7 A \\\| B \| High \| S \| M2 \| 1 \|/);
   assert.match(report, /- Login: exists/);
   assert.match(report, /- Dupe: duplicate/);
   assert.match(report, /- oops/);
