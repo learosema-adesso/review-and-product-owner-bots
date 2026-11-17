@@ -14,6 +14,7 @@ import {
   renderEpicBody,
   SIZES,
   PRIORITIES,
+  RELATIONS,
 } from './productowner/tickets.mjs';
 import { parseProjectUrl, loadProject, addToProject } from './productowner/project.mjs';
 import { loadIssueField, setIssueFieldOption } from './productowner/issuefields.mjs';
@@ -51,7 +52,11 @@ const INSTRUCTIONS =
   '(6) notes: constraints, open questions and technical hints for the developer, only if useful. ' +
   `(7) size: ${SIZES.join('/')}, priority: ${PRIORITIES.join('/')} (Urgent = blocks the product, Low = nice to have). ` +
   'labels and milestone: use only names from the lists you are given, pick the milestone the ticket fits best. ' +
-  '(8) relatedIssues: numbers of existing issues this ticket depends on or touches, only numbers from the backlog. ' +
+  '(8) overlaps: BEFORE you write the ticket, compare its idea with EVERY open and closed issue in the backlog, ' +
+  'including the newest ones, and list each issue that touches the same feature area, screen, calculation or data. ' +
+  'relation: "duplicate" if that issue already fully covers the behavior (the ticket is then not created), ' +
+  '"extends" if this ticket builds on it or changes what it assumes, "related" if it only touches the same area. ' +
+  'why: one short phrase. Use only issue numbers from the backlog. An empty list is correct only if nothing in the backlog is related. ' +
   '(9) Follow the conventions and decisions in the project guidelines and existing issues. ' +
   '(10) Describe behavior, not implementation: do not prescribe API routes, field names, data models, libraries or ' +
   'architecture unless the project guidelines or an existing issue already decide them. Put open design questions ' +
@@ -79,6 +84,18 @@ const PLAN_SCHEMA = {
       items: {
         type: 'OBJECT',
         properties: {
+          overlaps: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                number: { type: 'INTEGER' },
+                relation: { type: 'STRING', enum: RELATIONS },
+                why: { type: 'STRING' },
+              },
+              required: ['number', 'relation', 'why'],
+            },
+          },
           title: { type: 'STRING' },
           story: { type: 'STRING' },
           criteria: STRING_ARRAY,
@@ -88,9 +105,21 @@ const PLAN_SCHEMA = {
           milestone: { type: 'STRING' },
           size: { type: 'STRING', enum: SIZES },
           priority: { type: 'STRING', enum: PRIORITIES },
-          relatedIssues: { type: 'ARRAY', items: { type: 'INTEGER' } },
         },
-        required: ['title', 'story', 'criteria', 'labels', 'size', 'priority'],
+        // generated in this order: the overlap check comes before the text of the ticket
+        propertyOrdering: [
+          'overlaps',
+          'title',
+          'story',
+          'criteria',
+          'outOfScope',
+          'notes',
+          'labels',
+          'milestone',
+          'size',
+          'priority',
+        ],
+        required: ['overlaps', 'title', 'story', 'criteria', 'labels', 'size', 'priority'],
       },
     },
     skipped: {

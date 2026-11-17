@@ -499,3 +499,35 @@ test('a failing job summary is a warning, not a failure', async () => {
 test('renderPlanDetails is empty without tickets', () => {
   assert.equal(renderPlanDetails({ tickets: [] }), '');
 });
+
+test('the model must do the overlap check first, and a duplicate overlap discards the ticket', async () => {
+  const core = fakeCore();
+  let schema;
+  const duplicate = {
+    ...answer,
+    tickets: [
+      {
+        ...answer.tickets[0],
+        overlaps: [{ number: 81, relation: 'duplicate', why: 'the epic already covers it' }],
+      },
+    ],
+  };
+  const result = await productOwner({
+    github: fakeGithub(),
+    context,
+    core,
+    direction: 'x',
+    dryRun: true,
+    ask: async (opts) => {
+      schema = opts.schema.properties.tickets.items;
+      return duplicate;
+    },
+  });
+  assert.equal(schema.propertyOrdering[0], 'overlaps');
+  assert.ok(schema.required.includes('overlaps'));
+  assert.deepEqual(result.plan.tickets, []);
+  assert.deepEqual(result.plan.dropped, [
+    { title: 'Vote on times', reason: 'duplicate of #81: the epic already covers it' },
+  ]);
+  assert.match(core.infos.join('\n'), /Discarded drafts:\*\*\n- Vote on times: duplicate of #81/);
+});

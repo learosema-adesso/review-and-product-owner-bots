@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeTitle,
+  normalizeOverlaps,
   resolveMilestone,
   sanitizePlan,
   renderTicketBody,
@@ -99,9 +100,62 @@ test('sanitizePlan enforces the ticket limit', () => {
   assert.match(plan.dropped[0].reason, /limit of 2/);
 });
 
-test('sanitizePlan only keeps related issues that exist', () => {
-  const [t] = sanitizePlan({ tickets: [ticket({ relatedIssues: [87, 87, 4711] })] }, env).tickets;
-  assert.deepEqual(t.related, [87]);
+const known = new Set([81, 87]);
+
+test('normalizeOverlaps drops unknown issues and relations, and keeps the strongest relation', () => {
+  const out = normalizeOverlaps(
+    [
+      { number: 87, relation: 'related', why: ' same screen ' },
+      { number: 87, relation: 'extends', why: 'builds on it' },
+      { number: 4711, relation: 'related', why: 'invented' },
+      { number: 81, relation: 'similar', why: 'unknown relation' },
+    ],
+    known,
+  );
+  assert.deepEqual(out, [{ number: 87, relation: 'extends', why: 'builds on it' }]);
+  assert.deepEqual(normalizeOverlaps(undefined, known), []);
+  assert.deepEqual(normalizeOverlaps([null, 'x'], known), []);
+});
+
+test('normalizeOverlaps orders by relation, then by issue number', () => {
+  const out = normalizeOverlaps(
+    [
+      { number: 87, relation: 'related', why: '' },
+      { number: 81, relation: 'related', why: '' },
+      { number: 87, relation: 'duplicate', why: 'same' },
+    ],
+    known,
+  );
+  assert.deepEqual(
+    out.map((o) => `${o.relation}#${o.number}`),
+    ['duplicate#87', 'related#81'],
+  );
+});
+
+test('sanitizePlan keeps the overlaps of a ticket that is not a duplicate', () => {
+  const overlaps = [
+    { number: 87, relation: 'extends', why: 'slot calculation' },
+    { number: 4711, relation: 'related', why: 'x' },
+  ];
+  const [t] = sanitizePlan({ tickets: [ticket({ overlaps })] }, env).tickets;
+  assert.deepEqual(t.overlaps, [{ number: 87, relation: 'extends', why: 'slot calculation' }]);
+});
+
+test('sanitizePlan rejects a ticket that duplicates an existing issue, and says which', () => {
+  const overlaps = [{ number: 87, relation: 'duplicate', why: 'same help pages' }];
+  const plan = sanitizePlan({ tickets: [ticket({ overlaps }), ticket({ title: 'Other' })] }, env);
+  assert.deepEqual(
+    plan.tickets.map((t) => t.title),
+    ['Other'],
+  );
+  assert.deepEqual(plan.dropped, [
+    { title: 'Vote on meeting times', reason: 'duplicate of #87: same help pages' },
+  ]);
+});
+
+test('a duplicate relation to an issue that does not exist is ignored', () => {
+  const overlaps = [{ number: 4711, relation: 'duplicate', why: 'invented' }];
+  assert.equal(sanitizePlan({ tickets: [ticket({ overlaps })] }, env).tickets.length, 1);
 });
 
 test('epic: an existing open epic is used, closed or invented ones are not', () => {
@@ -128,7 +182,14 @@ test('renderTicketBody uses the layout the repo and BullyBot expect', () => {
   const [t] = sanitizePlan(
     {
       tickets: [
-        ticket({ outOfScope: ['Ranking'], notes: 'Use the poll API', relatedIssues: [87] }),
+        ticket({
+          outOfScope: ['Ranking'],
+          notes: 'Use the poll API',
+          overlaps: [
+            { number: 87, relation: 'extends', why: 'help pages' },
+            { number: 81, relation: 'related', why: '' },
+          ],
+        }),
       ],
     },
     env,
@@ -136,7 +197,10 @@ test('renderTicketBody uses the layout the repo and BullyBot expect', () => {
   const body = renderTicketBody(t);
   assert.match(body, /^## Goal\nAs a team member/);
   assert.match(body, /## Out of scope\n- Ranking/);
-  assert.match(body, /## Notes\nUse the poll API\n\nRelated: #87/);
+  assert.match(
+    body,
+    /## Notes\nUse the poll API\n\nOverlaps with existing issues:\n- Builds on #87: help pages\n- Related to #81\n/,
+  );
   assert.ok(body.includes(PO_MARKER));
   // BullyBot must be able to read the criteria back
   assert.deepEqual(parseAcceptanceCriteria(body), [

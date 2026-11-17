@@ -15,14 +15,18 @@ It runs only when you start it. It never reacts to issues, comments or pull requ
 2. **Plans.** It cuts your direction into small tickets that fit into one pull request each. Ideas
    that already exist in the code or the backlog are not turned into tickets, they are listed as
    skipped with a reason.
-3. **Checks its own work.** Drafts without acceptance criteria and duplicates of existing issues
+3. **Checks for overlap.** For every ticket it first lists the existing issues that touch the same
+   area and how they relate. A ticket that duplicates an existing issue is not created (it shows
+   up under "Discarded drafts" with the issue number). Tickets that build on or relate to existing
+   issues get an "Overlaps with existing issues" section in their notes.
+4. **Checks its own work.** Drafts without acceptance criteria and duplicates of existing issues
    or of other drafts are discarded. Labels, milestones, sizes and issue references that do not
    exist are dropped, so nothing is made up.
-4. **Creates the issues.** Each ticket is linked as a sub-issue of an existing open epic, or of a
+5. **Creates the issues.** Each ticket is linked as a sub-issue of an existing open epic, or of a
    new epic if the direction is big enough to deserve one.
-5. **Sets Priority and Size** (Urgent to Low, XS to XL), so nobody has to debate XS versus S in a
+6. **Sets Priority and Size** (Urgent to Low, XS to XL), so nobody has to debate XS versus S in a
    meeting, and **puts the tickets on the board** in **Backlog**.
-6. **Reports** what it did, what it skipped and what went wrong in the job summary of the run.
+7. **Reports** what it did, what it skipped and what went wrong in the job summary of the run.
 
 ### What a ticket looks like
 

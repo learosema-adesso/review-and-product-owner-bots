@@ -2,6 +2,9 @@
 export const PO_MARKER = '<!-- product-owner-bot -->';
 
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL'];
+/** How a new ticket relates to an existing issue, strongest first. */
+export const RELATIONS = ['duplicate', 'extends', 'related'];
+
 export const PRIORITIES = ['Urgent', 'High', 'Medium', 'Low'];
 
 const MAX_TITLE = 100;
@@ -25,6 +28,24 @@ const cleanItem = (s) => clean(s).replace(/^(?:[-*+](?:\s+|$))?(?:\[[ xX]\](?:\s
 
 const cleanList = (list, max) =>
   (Array.isArray(list) ? list : []).map(cleanItem).filter(Boolean).slice(0, max);
+
+/**
+ * Cleans the overlaps the model reported: unknown issue numbers and unknown relations are dropped,
+ * an issue named twice keeps its strongest relation.
+ */
+export function normalizeOverlaps(overlaps, knownNumbers) {
+  const byNumber = new Map();
+  for (const o of Array.isArray(overlaps) ? overlaps : []) {
+    const rank = RELATIONS.indexOf(o?.relation);
+    if (rank === -1 || !knownNumbers.has(o.number)) continue;
+    const have = byNumber.get(o.number);
+    if (!have || rank < RELATIONS.indexOf(have.relation))
+      byNumber.set(o.number, { number: o.number, relation: o.relation, why: clean(o.why) });
+  }
+  return [...byNumber.values()].sort(
+    (a, b) => RELATIONS.indexOf(a.relation) - RELATIONS.indexOf(b.relation) || a.number - b.number,
+  );
+}
 
 /** Finds a milestone by exact title or by its short prefix ("M2"). */
 export function resolveMilestone(name, milestones) {
@@ -67,6 +88,12 @@ export function sanitizePlan(raw, { labels, milestones, issues, max }) {
       );
       continue;
     }
+    const overlaps = normalizeOverlaps(t.overlaps, knownNumbers);
+    const duplicate = overlaps.find((o) => o.relation === 'duplicate');
+    if (duplicate) {
+      reject(`duplicate of #${duplicate.number}${duplicate.why ? `: ${duplicate.why}` : ''}`);
+      continue;
+    }
     const criteria = cleanList(t.criteria, MAX_CRITERIA);
     if (!criteria.length) {
       reject('no acceptance criteria');
@@ -94,7 +121,7 @@ export function sanitizePlan(raw, { labels, milestones, issues, max }) {
       milestone: resolveMilestone(t.milestone, milestones),
       size: SIZES.includes(t.size) ? t.size : null,
       priority: PRIORITIES.includes(t.priority) ? t.priority : null,
-      related: [...new Set(t.relatedIssues ?? [])].filter((n) => knownNumbers.has(n)),
+      overlaps,
     });
   }
 
@@ -128,6 +155,15 @@ function resolveEpic(raw, issues) {
   };
 }
 
+const RELATION_LABEL = { extends: 'Builds on', related: 'Related to' };
+const overlapLines = (overlaps) =>
+  overlaps
+    .map(
+      (o) =>
+        `- ${RELATION_LABEL[o.relation] ?? o.relation} #${o.number}${o.why ? `: ${o.why}` : ''}`,
+    )
+    .join('\n');
+
 const list = (items) => items.map((i) => `- ${i}`).join('\n');
 
 /** Issue body in the layout the repo already uses (and that BullyBot parses). */
@@ -138,7 +174,9 @@ export function renderTicketBody(ticket) {
 
   const notes = [
     ticket.notes,
-    ticket.related.length ? `Related: ${ticket.related.map((n) => `#${n}`).join(', ')}` : '',
+    ticket.overlaps.length
+      ? `Overlaps with existing issues:\n${overlapLines(ticket.overlaps)}`
+      : '',
   ].filter(Boolean);
   if (notes.length) parts.push(`## Notes\n${notes.join('\n\n')}`);
 
