@@ -30,6 +30,9 @@ concurrency:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    env:
+      # secrets cannot be used in "if:" directly, so the check goes through an env variable
+      APP_CONFIGURED: ${{ secrets.PRODUCT_OWNER_CLIENT_ID != '' && secrets.PRODUCT_OWNER_APP_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -44,20 +47,34 @@ jobs:
       - name: Install Dependencies
         run: npm ci --ignore-scripts --prefix scripts
 
+      # Preferred: a GitHub App. Its token lives for about an hour, is limited to this repository
+      # and is not tied to a person. The workflow token cannot write to Projects or read the
+      # organization's issue fields, so the app token is used for everything below.
+      - name: Create GitHub App token
+        id: app
+        if: env.APP_CONFIGURED == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.PRODUCT_OWNER_CLIENT_ID }}
+          private-key: ${{ secrets.PRODUCT_OWNER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
       - name: Run Product Owner
         uses: actions/github-script@v9
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Personal access token with the "project" scope: the workflow token cannot write to
-          # Projects. Without it, tickets are still created, just not added to the board.
-          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          # App token if the app is configured, otherwise a personal access token (fallback).
+          # Without either, tickets are still created, just not added to the board.
+          PROJECT_TOKEN: ${{ steps.app.outputs.token || secrets.PROJECT_TOKEN }}
           PROJECT_URL: ${{ vars.PROJECT_URL }}
           # passed via env, never interpolated into the script, so the text cannot inject code
           DIRECTION: ${{ inputs.direction }}
           MAX_TICKETS: ${{ inputs.max_tickets }}
           DRY_RUN: ${{ inputs.dry_run }}
         with:
-          github-token: ${{ github.token }}
+          # with the app token, the issues are created by the app instead of github-actions
+          github-token: ${{ steps.app.outputs.token || github.token }}
           script: |
             const path = require('path');
             const { pathToFileURL } = require('url');

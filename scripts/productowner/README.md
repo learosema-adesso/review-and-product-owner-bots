@@ -64,14 +64,47 @@ repository secret**). It is the same secret BullyBot uses, so if BullyBot works,
 Optional environment overrides, read by both bots: `GEMINI_MODEL`, `GEMINI_PROJECT_ID` and
 `GEMINI_LOCATION`.
 
-### 2. Token for the project board (recommended)
+### 2. Access to the board and issue fields
 
 GitHub's built-in workflow token cannot write to GitHub Projects and cannot read the organization's
-issue fields either, so Status, Size and Priority need a personal access token. Without one, the
-Product Owner still creates and links the issues, it just does not set these fields (and tells you
-so in the job log).
+issue fields, so Status, Size and Priority need more than the default token. Without it, the Product
+Owner still creates and links the issues, it just does not set these fields (and tells you so in
+the job log). There are two ways, in this order of preference:
 
-**Fine-grained token (recommended, tested):**
+#### Option A: a GitHub App (recommended)
+
+An app is not tied to a person, its tokens expire after about an hour, and nothing has to be renewed.
+It works for boards owned by an **organization**. With an app, the issues are also created by the
+app (shown as `<app name>[bot]`) instead of `github-actions`.
+
+1. As an organization owner, open **Organization settings → Developer settings → GitHub Apps → New
+   GitHub App**.
+2. Name it (for example `panic-planner-product-owner`), set any homepage URL, and **uncheck Webhook →
+   Active**. Under "Where can this GitHub App be installed?" choose **Only on this account**.
+3. Set these permissions, and no others:
+   - **Repository permissions → Issues: Read and write** (creates issues, sets Priority)
+   - **Repository permissions → Contents: Read** (reads the README and the source of the app)
+   - **Organization permissions → Projects: Read and write** (Status and Size on the board)
+   - **Organization permissions → Issue fields: Read** (finds the Priority field)
+4. Create the app. On its settings page, note the **Client ID**, then **Generate a private key**
+   (a `.pem` file is downloaded).
+5. Open **Install App**, install it on the organization and choose **Only select repositories** with
+   this repository.
+6. In the repository, add two secrets (**Settings → Secrets and variables → Actions**):
+   - `PRODUCT_OWNER_CLIENT_ID`: the Client ID
+   - `PRODUCT_OWNER_APP_KEY`: the full content of the `.pem` file, including the `BEGIN` and `END` lines
+7. Delete the `.pem` file from your computer. Run the workflow; the step "Create GitHub App token"
+   should run, and the issues should be authored by the app.
+
+The workflow creates the token at the start of every run, limits it to this repository, and
+GitHub revokes it when the job ends. The private key never appears in the log.
+
+#### Option B: a personal access token (fallback)
+
+Used if the app secrets are not set. Tokens expire, so set a reminder for the expiry date: a run
+with an expired token shows up as a warning.
+
+**Fine-grained token (tested):**
 
 1. Open **GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens**
    and choose **Generate new token**.
@@ -86,12 +119,11 @@ so in the job log).
 
 Fine-grained tokens cannot access boards owned by a user account. For those, use a classic token.
 
-**Classic token (alternative, not tested with Priority):** the scopes **`project`** and **`repo`**
-should cover the same. It is coarser, because it reaches every repository and project you can access.
+**Classic token (not tested with Priority):** the scopes **`project`** and **`repo`** should cover
+the same. It is coarser, because it reaches every repository and project you can access.
 
-The issues themselves are created with the workflow token; the board token is used for the board and
-for setting Priority. Set a reminder for the expiry date: a run with an expired token shows up as a
-warning.
+With a token, the issues themselves are created with the workflow token; the token is used for the
+board and for setting Priority.
 
 ### 3. Project board
 
@@ -109,9 +141,9 @@ The board needs these single-select fields; missing ones are skipped with a warn
 
 **Priority is different.** It is not a board field but the organization's **Priority issue field**
 (options `Urgent`, `High`, `Medium`, `Low`), which is set on the issue itself and then shows up on
-every board. The bot sets it right after creating the issue. It tries `PROJECT_TOKEN` first and the
-workflow token second, and the workflow token alone is usually not allowed to read issue fields. This needs a repository that belongs to an organization with that
-issue field (**Organization settings → Issue fields**). In a personal repository, Priority is
+every board. The bot sets it right after creating the issue, with the app token or `PROJECT_TOKEN`
+if there is one (the workflow token alone is usually not allowed to read issue fields). This needs a
+repository that belongs to an organization with that issue field (**Organization settings → Issue fields**). In a personal repository, Priority is
 skipped with a warning.
 
 Matching is case-insensitive. If your board already adds new issues automatically (a project
@@ -153,17 +185,18 @@ Only one run at a time is allowed, further runs wait in the queue.
 
 ## Troubleshooting
 
-| Symptom                                      | Likely cause and fix                                                                                                                                                 |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY secret is missing!`          | Add the secret, see setup step 1.                                                                                                                                    |
-| Warning: `PROJECT_URL is not set ...`        | Set the repository variable, see step 3. Issues were created but not put on a board.                                                                                 |
-| Warning: `PROJECT_TOKEN is not set ...`      | Add the token, see step 2. Issues were created but not set up on the board.                                                                                          |
-| Warning: `Project board not usable: ...`     | The token has no access to the board, expired, or `PROJECT_URL` is wrong.                                                                                            |
-| Warning: `Priority was not set on any issue` | The token lacks a permission (`Resource not accessible by integration`), see the permissions in step 2, or the organization has no Priority issue field, see step 3. |
-| Warning: `board has no option for Size=M`    | The board field or option is missing or named differently, see step 3.                                                                                               |
-| `No ticket could be created`                 | Every ticket failed. The job summary lists the errors, usually missing permissions.                                                                                  |
-| No tickets, only a summary                   | The direction was vague, or everything already exists. The summary says what it needs.                                                                               |
-| Ticket has no labels or milestone            | The model named one that does not exist, so it was dropped on purpose.                                                                                               |
+| Symptom                                      | Likely cause and fix                                                                                                                                                                     |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY secret is missing!`          | Add the secret, see setup step 1.                                                                                                                                                        |
+| Warning: `PROJECT_URL is not set ...`        | Set the repository variable, see step 3. Issues were created but not put on a board.                                                                                                     |
+| Warning: `No board token is configured ...`  | Set up the GitHub App or the token, see step 2. Issues were created but not put on the board.                                                                                            |
+| Step "Create GitHub App token" fails         | The client ID or private key is wrong (use the whole `.pem` content), or the app is not installed on this repository. See option A.                                                      |
+| Warning: `Project board not usable: ...`     | The token has no access to the board, expired, or `PROJECT_URL` is wrong.                                                                                                                |
+| Warning: `Priority was not set on any issue` | The token lacks a permission (`Resource not accessible by integration`), see the permissions of the app or token in step 2, or the organization has no Priority issue field, see step 3. |
+| Warning: `board has no option for Size=M`    | The board field or option is missing or named differently, see step 3.                                                                                                                   |
+| `No ticket could be created`                 | Every ticket failed. The job summary lists the errors, usually missing permissions.                                                                                                      |
+| No tickets, only a summary                   | The direction was vague, or everything already exists. The summary says what it needs.                                                                                                   |
+| Ticket has no labels or milestone            | The model named one that does not exist, so it was dropped on purpose.                                                                                                                   |
 
 ## Files
 

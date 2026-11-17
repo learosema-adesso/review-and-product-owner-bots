@@ -322,8 +322,8 @@ async function placeOnBoard({ projectGithub, projectUrl, created, core }) {
   }
   if (!projectGithub) {
     return [
-      'PROJECT_TOKEN is not set, so the issues were not added to the project board ' +
-        '(the default workflow token cannot write to Projects).',
+      'No board token is configured (GitHub App secrets or PROJECT_TOKEN), so the issues were not ' +
+        'added to the project board (the default workflow token cannot write to Projects).',
     ];
   }
 
