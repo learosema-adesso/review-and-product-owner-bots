@@ -79,8 +79,10 @@ app (shown as `<app name>[bot]`) instead of `github-actions`.
 
 1. As an organization owner, open **Organization settings → Developer settings → GitHub Apps → New
    GitHub App**.
-2. Name it (for example `panic-planner-product-owner`), set any homepage URL, and **uncheck Webhook →
-   Active**. Under "Where can this GitHub App be installed?" choose **Only on this account**.
+2. Name it (for example `panic-planner-product-owner`). The form requires a homepage URL; use the
+   URL of this repository. Leave Callback URL and Setup URL empty, leave the OAuth, device flow and
+   "expire user authorization tokens" options unchecked, and **uncheck Webhook → Active**. Under
+   "Where can this GitHub App be installed?" choose **Only on this account**.
 3. Set these permissions, and no others:
    - **Repository permissions → Issues: Read and write** (creates issues, sets Priority)
    - **Repository permissions → Contents: Read** (reads the README and the source of the app)
