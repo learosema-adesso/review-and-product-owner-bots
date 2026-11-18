@@ -72,9 +72,11 @@ Large PRs are cut down by priority, the least important context goes first (diff
 
 ## Setup
 
-1. Add the repository secret `GEMINI_API_KEY` (**Settings → Secrets and variables → Actions → New
-   repository secret**). Optional environment overrides: `GEMINI_MODEL`, `GEMINI_PROJECT_ID` and
-   `GEMINI_LOCATION`.
+1. Add the repository secret `LLM_API_KEY` (**Settings → Secrets and variables → Actions → New
+   repository secret**). The old `GEMINI_API_KEY` secret works as well. Gemini is the default; to
+   use another provider (any OpenAI-compatible API) set the variables `LLM_PROVIDER`, `LLM_MODEL`
+   and `LLM_BASE_URL`, see the [AI provider section of scripts/README.md](../README.md#ai-provider).
+   Weaker models review worse: wrong line numbers and false findings.
 2. That's it. The workflow in `.github/workflows/bullybot.yml` declares its own permissions
    (`contents: read`, `issues: read`, `pull-requests: write`).
 
@@ -105,27 +107,27 @@ section. Criteria that can't be tested automatically are marked n/a rather than 
 
 ## Troubleshooting
 
-| Symptom                             | Likely cause and fix                                                                          |
-| ----------------------------------- | --------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY secret is missing!` | Add the secret. PRs from forks and bots never get it.                                         |
-| Nothing happens on a PR             | Draft PR, bot PR, or someone wrote `shut up`.                                                 |
-| "No linked issue" hint              | Add `Closes #<issue>` to the PR description.                                                  |
-| Criteria show as "not assessed"     | The model left them out. Push again or run the workflow by hand.                              |
-| `AI Generation failed`              | Gemini was overloaded or returned nothing. He makes up to three attempts, run it again later. |
-| He keeps raising something wrong    | Reply in the thread with the reason. If you're right he admits it.                            |
-| Thread stays open after he conceded | Click "Resolve", the token isn't allowed to.                                                  |
+| Symptom                             | Likely cause and fix                                                                                                              |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `LLM_API_KEY secret is missing!`    | Add the secret. PRs from forks and bots never get it.                                                                             |
+| Nothing happens on a PR             | Draft PR, bot PR, or someone wrote `shut up`.                                                                                     |
+| "No linked issue" hint              | Add `Closes #<issue>` to the PR description.                                                                                      |
+| Criteria show as "not assessed"     | The model left them out. Push again or run the workflow by hand.                                                                  |
+| `AI Generation failed`              | The AI service was overloaded, refused the request or returned nothing usable. He makes up to three attempts, run it again later. |
+| He keeps raising something wrong    | Reply in the thread with the reason. If you're right he admits it.                                                                |
+| Thread stays open after he conceded | Click "Resolve", the token isn't allowed to.                                                                                      |
 
 ## Files
 
-| File                              | Purpose                                                                 |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `.github/workflows/bullybot.yml`  | Triggers, permissions and concurrency.                                  |
-| `scripts/bullybot.mjs`            | Orchestration: persona, prompts, thread follow-ups, posting the review. |
-| `scripts/bullybot/diff.mjs`       | Splits and line-annotates the diff, finds related tests, skips noise.   |
-| `scripts/bullybot/context.mjs`    | Gathers linked issues, files, guidelines and fits them into the budget. |
-| `scripts/bullybot/acceptance.mjs` | Parses criteria and renders the checklist comment.                      |
-| `scripts/bullybot/review.mjs`     | Finding selection, thread status and the sticky comment.                |
-| `scripts/lib/gemini.mjs`          | Gemini client with retries, shared with the Product Owner.              |
+| File                              | Purpose                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `.github/workflows/bullybot.yml`  | Triggers, permissions and concurrency.                                    |
+| `scripts/bullybot.mjs`            | Orchestration: persona, prompts, thread follow-ups, posting the review.   |
+| `scripts/bullybot/diff.mjs`       | Splits and line-annotates the diff, finds related tests, skips noise.     |
+| `scripts/bullybot/context.mjs`    | Gathers linked issues, files, guidelines and fits them into the budget.   |
+| `scripts/bullybot/acceptance.mjs` | Parses criteria and renders the checklist comment.                        |
+| `scripts/bullybot/review.mjs`     | Finding selection, thread status and the sticky comment.                  |
+| `scripts/lib/llm.mjs`             | AI provider (Gemini or OpenAI-compatible), shared with the Product Owner. |
 
 ## Tests
 

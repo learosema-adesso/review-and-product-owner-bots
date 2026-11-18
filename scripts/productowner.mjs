@@ -1,4 +1,4 @@
-import { createGeminiClient, gemini } from './lib/gemini.mjs';
+import { askFromEnv } from './lib/llm.mjs';
 import { fitSections } from './bullybot/context.mjs';
 import { PERSONA } from './productowner/persona.mjs';
 import { gatherProductContext } from './productowner/context.mjs';
@@ -65,7 +65,7 @@ const INSTRUCTIONS =
 
 const STRING_ARRAY = { type: 'ARRAY', items: { type: 'STRING' } };
 
-const PLAN_SCHEMA = {
+export const PLAN_SCHEMA = {
   type: 'OBJECT',
   properties: {
     summary: { type: 'STRING' },
@@ -199,7 +199,7 @@ export async function productOwner({
   maxTickets: maxTicketsInput,
   dryRun = false,
   projectUrl,
-  ask: askOverride, // test seam: replaces the Gemini call
+  ask: askOverride, // test seam: replaces the AI call
 }) {
   const { owner, repo } = context.repo;
   const direction = String(directionInput ?? '')
@@ -210,12 +210,8 @@ export async function productOwner({
     return;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    core.setFailed('GEMINI_API_KEY secret is missing!');
-    return;
-  }
-  const ask = askOverride ?? ((opts) => gemini({ ai: createGeminiClient(apiKey), ...opts }));
+  const ask = askOverride ?? askFromEnv(core);
+  if (!ask) return;
   const max = clampTickets(maxTicketsInput);
 
   // 1. What do we have? Backlog, labels, milestones and the product itself.

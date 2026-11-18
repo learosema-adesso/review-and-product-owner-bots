@@ -56,13 +56,15 @@ The `## Acceptance criteria` checkbox list is the format BullyBot reads.
 
 You need to do this once.
 
-### 1. Gemini API key
+### 1. AI provider
 
-Add the repository secret `GEMINI_API_KEY` (**Settings → Secrets and variables → Actions → New
-repository secret**). It is the same secret BullyBot uses, so if BullyBot works, this is done.
+Add the repository secret `LLM_API_KEY` (**Settings → Secrets and variables → Actions → New
+repository secret**). The old `GEMINI_API_KEY` secret works as well. It is the same secret BullyBot
+uses, so if BullyBot works, this is done.
 
-Optional environment overrides, read by both bots: `GEMINI_MODEL`, `GEMINI_PROJECT_ID` and
-`GEMINI_LOCATION`.
+Gemini is the default. To use another provider (OpenAI, OpenRouter, Mistral, Ollama, vLLM, Azure
+OpenAI, ...) set the variables `LLM_PROVIDER`, `LLM_MODEL` and `LLM_BASE_URL`. All of it, including
+what to expect from weaker models, is in the [AI provider section of scripts/README.md](../README.md#ai-provider).
 
 ### 2. Access to the board and issue fields
 
@@ -188,7 +190,7 @@ Only one run at a time is allowed (this includes the cleanup and the refinement)
 ## Cleaning up the backlog
 
 **Actions → Product Owner cleanup → Run workflow** tidies the backlog so the board stays
-trustworthy. It uses the same setup as the Product Owner (Gemini key, optional GitHub App), needs no
+trustworthy. It uses the same setup as the Product Owner (AI provider, optional GitHub App), needs no
 board access and only the permission to write issues.
 
 It looks at open issues and flags those where at least one of these holds:
@@ -266,7 +268,7 @@ markers, instructions in it are ignored. Always start with a dry run.
 
 | Symptom                                      | Likely cause and fix                                                                                                                                                                     |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY secret is missing!`          | Add the secret, see setup step 1.                                                                                                                                                        |
+| `LLM_API_KEY secret is missing!`             | Add the secret, see setup step 1.                                                                                                                                                        |
 | Warning: `PROJECT_URL is not set ...`        | Set the repository variable, see step 3. Issues were created but not put on a board.                                                                                                     |
 | Warning: `No board token is configured ...`  | Set up the GitHub App or the token, see step 2. Issues were created but not put on the board.                                                                                            |
 | Step "Create GitHub App token" fails         | The client ID or private key is wrong (use the whole `.pem` content), or the app is not installed on this repository. See option A.                                                      |
@@ -295,7 +297,9 @@ markers, instructions in it are ignored. Always start with a dry run.
 | `scripts/productowner/backlog.mjs`            | Loads and formats issues, labels and milestones.                         |
 | `scripts/productowner/tickets.mjs`            | Validates the model's plan and renders issue bodies.                     |
 | `scripts/productowner/project.mjs`            | Adds issues to the board and sets its fields.                            |
-| `scripts/lib/gemini.mjs`                      | Gemini client with retries, shared with BullyBot.                        |
+| `scripts/lib/llm.mjs`                         | Picks the AI provider from the environment, shared with BullyBot.        |
+| `scripts/lib/gemini.mjs`, `openai.mjs`        | The providers: Gemini, and any OpenAI-compatible API.                    |
+| `scripts/lib/llm-schema.mjs`                  | Converts the answer schemas and checks answers against them.             |
 
 ## Tests
 

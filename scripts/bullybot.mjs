@@ -1,4 +1,4 @@
-import { createGeminiClient, gemini } from './lib/gemini.mjs';
+import { askFromEnv } from './lib/llm.mjs';
 import { parseDiff, isNoise } from './bullybot/diff.mjs';
 import { gatherContext, fitSections } from './bullybot/context.mjs';
 import {
@@ -77,7 +77,7 @@ const REVIEW_INSTRUCTIONS =
   'Do not start the summary with a heading or title: it is posted under a "BullyBot" heading already. ' +
   'Roast unmet acceptance criteria and untested behavior there.';
 
-const REVIEW_SCHEMA = {
+export const REVIEW_SCHEMA = {
   type: 'OBJECT',
   properties: {
     summary: { type: 'STRING' },
@@ -111,7 +111,7 @@ const REVIEW_SCHEMA = {
   required: ['summary', 'findings', 'acceptance'],
 };
 
-const VERDICT_SCHEMA = {
+export const VERDICT_SCHEMA = {
   type: 'OBJECT',
   properties: {
     verdict: { type: 'STRING', enum: ['fixed', 'dispute_accepted', 'still_open'] },
@@ -149,14 +149,8 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
     return;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    core.setFailed('GEMINI_API_KEY secret is missing!');
-    return;
-  }
-
-  const ai = createGeminiClient(apiKey);
-  const ask = (opts) => gemini({ ai, ...opts });
+  const ask = askFromEnv(core);
+  if (!ask) return;
 
   // 2. Mute check (ignoring BullyBot's own comments)
   const comments = await github.paginate(github.rest.issues.listComments, {

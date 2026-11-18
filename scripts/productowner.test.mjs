@@ -136,6 +136,8 @@ const answer = {
 
 test.beforeEach(() => {
   process.env.GEMINI_API_KEY = 'k';
+  for (const name of ['LLM_PROVIDER', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_BASE_URL'])
+    delete process.env[name];
 });
 
 test('creates tickets, links them to the epic and skips duplicates of existing issues', async () => {
@@ -408,7 +410,7 @@ test('fails early without direction or API key', async () => {
   delete process.env.GEMINI_API_KEY;
   const noKey = fakeCore();
   await productOwner({ github: fakeGithub(), context, core: noKey, direction: 'x' });
-  assert.match(noKey.failed, /GEMINI_API_KEY/);
+  assert.match(noKey.failed, /LLM_API_KEY/);
 });
 
 test('model failure fails the run without creating anything', async () => {

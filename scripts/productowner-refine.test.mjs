@@ -275,6 +275,8 @@ const run = (github, core, extra = {}) =>
 
 test.beforeEach(() => {
   process.env.GEMINI_API_KEY = 'k';
+  for (const name of ['LLM_PROVIDER', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_BASE_URL'])
+    delete process.env[name];
 });
 
 test('a dry run scans, proposes and changes nothing', async () => {
@@ -484,7 +486,7 @@ test('a missing API key fails early', async () => {
   delete process.env.GEMINI_API_KEY;
   const core = fakeCore();
   await run(fakeGithub(), core, { ask: undefined });
-  assert.match(core.failed, /GEMINI_API_KEY/);
+  assert.match(core.failed, /LLM_API_KEY/);
 });
 
 test('a scan does not reword a well-formed ticket, an explicit request may', async () => {

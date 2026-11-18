@@ -1,4 +1,4 @@
-import { createGeminiClient, gemini } from './lib/gemini.mjs';
+import { askFromEnv } from './lib/llm.mjs';
 import { fitSections } from './bullybot/context.mjs';
 import { PERSONA } from './productowner/persona.mjs';
 import { gatherProductContext } from './productowner/context.mjs';
@@ -306,7 +306,7 @@ export async function productOwnerRefine({
   dryRun = true,
   apply = false,
   projectUrl,
-  ask: askOverride, // test seam: replaces the Gemini call
+  ask: askOverride, // test seam: replaces the AI call
 }) {
   const { owner, repo } = context.repo;
   const target = parseIssueInput(issueInput);
@@ -314,12 +314,8 @@ export async function productOwnerRefine({
     core.setFailed(`"${target.invalid}" is neither an issue number nor "scan".`);
     return;
   }
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    core.setFailed('GEMINI_API_KEY secret is missing!');
-    return;
-  }
-  const ask = askOverride ?? ((opts) => gemini({ ai: createGeminiClient(apiKey), ...opts }));
+  const ask = askOverride ?? askFromEnv(core);
+  if (!ask) return;
   const max = clampMaxIssues(maxIssues);
 
   let issues, labels, milestones, ctx;

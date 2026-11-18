@@ -63,7 +63,16 @@ jobs:
       - name: Run Product Owner cleanup
         uses: actions/github-script@v9
         env:
+          # AI provider: gemini (default) or any OpenAI-compatible service, see scripts/README.md
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          # the Gemini names keep working while the LLM_ ones are not set
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_PROJECT_ID: ${{ vars.GEMINI_PROJECT_ID }}
+          GEMINI_LOCATION: ${{ vars.GEMINI_LOCATION }}
           # passed via env, never interpolated into the script
           DRY_RUN: ${{ inputs.dry_run }}
           STALE_DAYS: ${{ inputs.stale_days }}
