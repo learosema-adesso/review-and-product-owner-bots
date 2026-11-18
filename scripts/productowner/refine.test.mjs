@@ -4,6 +4,8 @@ import {
   clampMaxIssues,
   findCandidates,
   hasDescription,
+  addSplit,
+  mustSplit,
   parseCriteria,
   parseIssueInput,
   refinable,
@@ -424,4 +426,45 @@ test('an announced refinement without content is reported, not hidden', () => {
   assert.deepEqual(r.problems, ['the model announced a refinement but delivered nothing usable']);
   const ok = sanitizeRefinement({ assessment: 'ok', explanation: 'Fine.' }, issue(1));
   assert.deepEqual(ok.problems, []);
+});
+
+test('mustSplit follows the objective rules', () => {
+  assert.equal(mustSplit(issue(1), 'M'), false);
+  assert.equal(mustSplit(issue(1), 'XL'), true);
+  assert.equal(
+    mustSplit(issue(1, { body: '## Acceptance criteria\n- [ ] only one' }), 'XL'),
+    false,
+  );
+  const many = `## Acceptance criteria\n${Array.from({ length: 9 }, (_, i) => `- [ ] item ${i}`).join('\n')}`;
+  assert.equal(mustSplit(issue(1, { body: many }), 'M'), true);
+});
+
+test('a split requested afterwards is checked like the first one', () => {
+  const announced = sanitizeRefinement(
+    { assessment: 'refine', explanation: 'I split it.', size: 'L' },
+    issue(1),
+  );
+  assert.equal(announced.action, 'none');
+  const good = {
+    reason: 'Two behaviors.',
+    tickets: [
+      { title: 'A', story: 's', covers: [1, 2], size: 'S', priority: 'High' },
+      { title: 'B', story: 's', covers: [3, 4], size: 'S', priority: 'High' },
+    ],
+  };
+  const body = `## Acceptance criteria\n${['a', 'b', 'c', 'd'].map((c) => `- [ ] ${c}`).join('\n')}`;
+  const withSplit = addSplit(announced, good, issue(1, { body }), { size: 'L', priority: 'High' });
+  assert.equal(withSplit.action, 'refine');
+  assert.equal(withSplit.split.tickets.length, 2);
+  assert.deepEqual(withSplit.problems, []);
+  assert.deepEqual([withSplit.size, withSplit.priority], ['L', 'High']);
+
+  const bad = addSplit(
+    announced,
+    { tickets: [good.tickets[0], good.tickets[0]] },
+    issue(1, { body }),
+    {},
+  );
+  assert.equal(bad.action, 'none');
+  assert.match(bad.problems[0], /split discarded/);
 });

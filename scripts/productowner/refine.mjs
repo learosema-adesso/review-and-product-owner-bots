@@ -268,6 +268,37 @@ export function sanitizeRefinement(raw, issue, { allowRewrite = true } = {}) {
   return result;
 }
 
+/**
+ * True for a ticket that has to be split by the objective rules (size L/XL or more than 8 criteria)
+ * and has enough criteria to distribute.
+ */
+export function mustSplit(issue, size) {
+  const criteria = parseCriteria(issue.body);
+  return (
+    criteria.length >= 2 &&
+    (BIG_SIZES.includes(size) || criteria.length > MAX_CRITERIA_BEFORE_SPLIT)
+  );
+}
+
+/**
+ * The model sometimes announces a split without delivering it. A second, focused answer is checked
+ * like the first one. Returns the refinement with the split, or with the reason it was discarded.
+ */
+export function addSplit(result, splitRaw, issue, raw) {
+  const checked = validateSplit(splitRaw, parseCriteria(issue.body));
+  const problems = result.problems.filter((p) => !p.startsWith('the model announced'));
+  if (checked.error)
+    return { ...result, problems: [...problems, `split discarded: ${checked.error}`] };
+  return {
+    ...result,
+    action: 'refine',
+    split: checked,
+    problems,
+    size: SIZES.includes(raw?.size) ? raw.size : null,
+    priority: PRIORITIES.includes(raw?.priority) ? raw.priority : null,
+  };
+}
+
 // ---------------------------------------------------------------- texts
 
 /** Wraps text in a code fence that is longer than any fence inside of it. */

@@ -512,3 +512,46 @@ test('the explanation is generated after the fields it describes', async () => {
   const { REFINE_SCHEMA } = await import('./productowner-refine.mjs');
   assert.equal(REFINE_SCHEMA.propertyOrdering.at(-1), 'explanation');
 });
+
+test('a split that was announced but not delivered is requested once more', async () => {
+  const calls = [];
+  const { outcomes } = await run(fakeGithub(), fakeCore(), {
+    dryRun: true,
+    issue: '2',
+    ask: async ({ schema, prompt }) => {
+      calls.push(Object.keys(schema.properties).join(','));
+      if (schema.properties.tickets)
+        return {
+          reason: 'Voting and results are independent.',
+          tickets: [
+            { title: 'Cast votes', story: 's', covers: [1, 2, 4], size: 'S', priority: 'High' },
+            { title: 'Show results', story: 's', covers: [3], size: 'S', priority: 'High' },
+          ],
+        };
+      return {
+        assessment: 'refine',
+        explanation: 'I split this ticket in two.',
+        size: 'L',
+        priority: 'High',
+      };
+    },
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(outcomes[0].result.action, 'refine');
+  assert.equal(outcomes[0].result.split.tickets.length, 2);
+  assert.deepEqual(outcomes[0].result.problems, []);
+});
+
+test('a ticket that does not have to be split is not asked again', async () => {
+  let calls = 0;
+  const { outcomes } = await run(fakeGithub(), fakeCore(), {
+    dryRun: true,
+    issue: '4',
+    ask: async () => {
+      calls++;
+      return { assessment: 'refine', explanation: 'I tidied it.' };
+    },
+  });
+  assert.equal(calls, 1);
+  assert.match(outcomes[0].result.problems[0], /announced a refinement/);
+});
