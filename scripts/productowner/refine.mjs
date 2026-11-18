@@ -10,7 +10,8 @@ export const MAX_CRITERIA_BEFORE_SPLIT = 8;
 const MAX_CRITERIA = 12;
 const MAX_QUESTIONS = 5;
 const MAX_SPLIT_TICKETS = 6;
-const MIN_DESCRIPTION_WORDS = 6;
+// A one-line goal ("Users can move between months.") is a description by the repo's convention
+const MIN_DESCRIPTION_WORDS = 3;
 
 export const DEFAULT_MAX_ISSUES = 5;
 const HARD_MAX_ISSUES = 20;
@@ -172,9 +173,11 @@ const sectionCriteria = (criteria) =>
  *  - a rewrite is accepted only for text that exists, and only if it still has checkbox criteria
  *  - a question never changes any text
  *  - the split has to carry every criterion exactly once, otherwise only the split is discarded
+ *  - a rewrite is only taken when `allowRewrite` is set: a scan picks well-formed tickets for other
+ *    reasons (size, many criteria) and must not reword them
  * `problems` lists everything that was dropped, so the report can show it.
  */
-export function sanitizeRefinement(raw, issue) {
+export function sanitizeRefinement(raw, issue, { allowRewrite = true } = {}) {
   const problems = [];
   const body = String(issue.body ?? '').trim();
   const explanation = clean(raw?.explanation);
@@ -211,6 +214,10 @@ export function sanitizeRefinement(raw, issue) {
       );
     } else if (rewritten === body) {
       problems.push('rewrite ignored: identical to the original');
+    } else if (!allowRewrite) {
+      problems.push(
+        'rewrite discarded: the ticket was not picked for unclear wording, its text stays as it is',
+      );
     } else {
       let next = rewritten;
       if (!parseCriteria(next).length && newCriteria.length)
@@ -254,6 +261,9 @@ export function sanitizeRefinement(raw, issue) {
   else {
     result.size = null;
     result.priority = null;
+    // The explanation must not stand alone: say that nothing came of the announced refinement
+    if (!problems.length)
+      problems.push('the model announced a refinement but delivered nothing usable');
   }
   return result;
 }

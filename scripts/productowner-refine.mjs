@@ -18,6 +18,7 @@ import {
   NEEDS_INFO_LABEL,
   clampMaxIssues,
   findCandidates,
+  hasDescription,
   parseCriteria,
   parseIssueInput,
   refinable,
@@ -42,7 +43,8 @@ const INSTRUCTIONS =
   'If it has no acceptance criteria, write "criteria": 3 to 8 criteria, each observable and testable, written as a ' +
   'statement, with error paths and accessibility where there is a UI. Leave goal and criteria empty when the ticket ' +
   'already has them. ' +
-  '(2) Never rewrite human text that is clear. Only when the text is ambiguous, contradictory or vague AND the code, ' +
+  '(2) Never rewrite human text that is clear. A short ticket is not an unclear ticket: leave its text, its ' +
+  'requirements and its wording alone, do not add requirements the author did not ask for, do not reword for style. Only when the text is ambiguous, contradictory or vague AND the code, ' +
   'the backlog or the guidelines settle the question, set "rewrittenBody": the complete new text in this layout: ' +
   '"## Goal", "## Acceptance criteria" as a "- [ ]" checkbox list, optionally "## Out of scope" and "## Notes". ' +
   'Keep every requirement of the original, do not invent new ones. ' +
@@ -104,7 +106,6 @@ export const REFINE_SCHEMA = {
   },
   propertyOrdering: [
     'assessment',
-    'explanation',
     'goal',
     'criteria',
     'rewrittenBody',
@@ -112,6 +113,8 @@ export const REFINE_SCHEMA = {
     'split',
     'size',
     'priority',
+    // last: it summarizes what was produced above and cannot announce what was not
+    'explanation',
   ],
   required: ['assessment', 'explanation'],
 };
@@ -424,7 +427,10 @@ export async function productOwnerRefine({
         prompt: ticketPrompt({ issue, reasons, size: sizes.get(issue.number), contextText }),
       });
       logGroup(core, `Raw answer for #${issue.number}`, JSON.stringify(raw, null, 2));
-      const result = sanitizeRefinement(raw, issue);
+      // A scan also picks well-formed tickets (size, many criteria): those must not be reworded
+      const allowRewrite =
+        target.number != null || reasons.includes('vague wording') || !hasDescription(issue.body);
+      const result = sanitizeRefinement(raw, issue, { allowRewrite });
       const refined = result.action === 'refine';
       outcomes.push({
         issue,

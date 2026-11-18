@@ -72,6 +72,11 @@ test('hasDescription ignores headings, checkboxes, markers and the footer', () =
     false,
   );
   assert.equal(hasDescription('Users need a way to export their calendar as a file.'), true);
+  assert.equal(
+    hasDescription('## Goal\nUsers can move between months.\n\n## Acceptance criteria\n- [ ] a'),
+    true,
+  );
+  assert.equal(hasDescription('## Goal\nExport\n'), false);
 });
 
 test('refinementReasons names what is missing', () => {
@@ -395,4 +400,28 @@ test('the report lists every ticket, what was discarded and the problems', () =>
   assert.match(report, /board down/);
   assert.match(renderRefineDetails(outcomes), /New text:\n\ntext/);
   assert.match(renderRefineReport({ outcomes: [], dryRun: false }), /Nothing to refine/);
+});
+
+test('a rewrite is discarded when the ticket was not picked for unclear wording', () => {
+  const raw = {
+    assessment: 'refine',
+    explanation: 'x',
+    rewrittenBody: '## Goal\nSomething else entirely.\n\n## Acceptance criteria\n- [ ] A\n- [ ] B',
+  };
+  const scanned = sanitizeRefinement(raw, issue(1), { allowRewrite: false });
+  assert.equal(scanned.newBody, null);
+  assert.equal(scanned.action, 'none');
+  assert.match(scanned.problems[0], /not picked for unclear wording/);
+  assert.equal(sanitizeRefinement(raw, issue(1)).rewritten, true);
+});
+
+test('an announced refinement without content is reported, not hidden', () => {
+  const r = sanitizeRefinement(
+    { assessment: 'refine', explanation: 'I split this ticket into three.', size: 'L' },
+    issue(1),
+  );
+  assert.equal(r.action, 'none');
+  assert.deepEqual(r.problems, ['the model announced a refinement but delivered nothing usable']);
+  const ok = sanitizeRefinement({ assessment: 'ok', explanation: 'Fine.' }, issue(1));
+  assert.deepEqual(ok.problems, []);
 });

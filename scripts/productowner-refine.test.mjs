@@ -486,3 +486,29 @@ test('a missing API key fails early', async () => {
   await run(fakeGithub(), core, { ask: undefined });
   assert.match(core.failed, /GEMINI_API_KEY/);
 });
+
+test('a scan does not reword a well-formed ticket, an explicit request may', async () => {
+  const rewrite = {
+    assessment: 'refine',
+    explanation: 'Reworded.',
+    rewrittenBody:
+      '## Goal\nVote on times.\n\n## Acceptance criteria\n- [ ] One vote per option\n- [ ] More',
+  };
+  // #2 is picked by the scan because of its size, not because of unclear wording
+  const scan = await run(fakeGithub(), fakeCore(), { dryRun: true, ask: askWith({ 2: rewrite }) });
+  const two = scan.outcomes.find((o) => o.issue.number === 2);
+  assert.equal(two.result.newBody, null);
+  assert.match(two.result.problems[0], /not picked for unclear wording/);
+
+  const explicit = await run(fakeGithub(), fakeCore(), {
+    dryRun: true,
+    issue: '2',
+    ask: askWith({ 2: rewrite }),
+  });
+  assert.equal(explicit.outcomes[0].result.rewritten, true);
+});
+
+test('the explanation is generated after the fields it describes', async () => {
+  const { REFINE_SCHEMA } = await import('./productowner-refine.mjs');
+  assert.equal(REFINE_SCHEMA.propertyOrdering.at(-1), 'explanation');
+});
