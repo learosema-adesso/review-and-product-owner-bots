@@ -183,7 +183,41 @@ summary, then run again without `dry_run`. Two runs with the same direction can 
 tickets, so don't expect the second run to match the dry run word for word. Duplicates of issues
 that already exist are filtered, which makes a repeated run safe, though not free.
 
-Only one run at a time is allowed, further runs wait in the queue.
+Only one run at a time is allowed (this includes the cleanup), further runs wait in the queue.
+
+## Cleaning up the backlog
+
+**Actions → Product Owner cleanup → Run workflow** tidies the backlog so the board stays
+trustworthy. It uses the same setup as the Product Owner (Gemini key, optional GitHub App), needs no
+board access and only the permission to write issues.
+
+It looks at open issues and flags those where at least one of these holds:
+
+- **implemented**: the code or a closed issue already delivers the behavior (the reason names it)
+- **duplicate** of another issue, open or closed
+- **superseded** by a newer issue
+- **inactive**: no activity for `stale_days` days (the dates are checked by the script, not trusted
+  from the model) and nothing keeps it relevant
+
+Every flagged issue gets a one-sentence reason and an action: close as completed, close as not
+planned, close as duplicate of #N, or, for inactive issues that are not clearly obsolete, only the
+label `stale`. Pull requests and epics are never touched, an epic is only looked at when all of its
+sub-issues are done. Issues that already carry the label `stale` are not flagged a second time.
+
+| Input        | Meaning                                                                           |
+| ------------ | --------------------------------------------------------------------------------- |
+| `dry_run`    | Default **on**: list the proposals in the job summary and change nothing.         |
+| `stale_days` | Days without activity before an issue counts as inactive. Default 90.             |
+| `max_issues` | Upper limit of issues touched per run. Default 10, hard limit 50. The rest waits. |
+
+A real run writes the reason as a comment under each issue **before** it closes or labels it, so
+the author always sees why. A closed issue can be reopened. Issue numbers in a duplicate or
+superseded verdict must exist (a superseding issue must be newer), otherwise the verdict is
+discarded and listed under "Discarded verdicts". A failing issue does not stop the others, and the
+job fails only if nothing could be cleaned up. Issue text is data: instructions in it are ignored.
+
+Always start with a dry run and read the reasons. Closing is the one thing in this bot that is hard to
+undo in bulk, so it is on you to start the real run.
 
 ## Troubleshooting
 
@@ -202,15 +236,18 @@ Only one run at a time is allowed, further runs wait in the queue.
 
 ## Files
 
-| File                                  | Purpose                                                                 |
-| ------------------------------------- | ----------------------------------------------------------------------- |
-| `.github/workflows/product-owner.yml` | The manually triggered workflow.                                        |
-| `scripts/productowner.mjs`            | Orchestration: persona, prompt, creating issues, run report.            |
-| `scripts/productowner/context.mjs`    | Reads the product (README, guidelines, source) from the default branch. |
-| `scripts/productowner/backlog.mjs`    | Loads and formats issues, labels and milestones.                        |
-| `scripts/productowner/tickets.mjs`    | Validates the model's plan and renders issue bodies.                    |
-| `scripts/productowner/project.mjs`    | Adds issues to the board and sets its fields.                           |
-| `scripts/lib/gemini.mjs`              | Gemini client with retries, shared with BullyBot.                       |
+| File                                          | Purpose                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| `.github/workflows/product-owner.yml`         | The manually triggered workflow.                                         |
+| `.github/workflows/product-owner-cleanup.yml` | The manually triggered backlog cleanup.                                  |
+| `scripts/productowner-cleanup.mjs`            | Orchestration of the cleanup: prompt, applying the verdicts.             |
+| `scripts/productowner/cleanup.mjs`            | Cleanup logic: who may be touched, verdict validation, comments, report. |
+| `scripts/productowner.mjs`                    | Orchestration: persona, prompt, creating issues, run report.             |
+| `scripts/productowner/context.mjs`            | Reads the product (README, guidelines, source) from the default branch.  |
+| `scripts/productowner/backlog.mjs`            | Loads and formats issues, labels and milestones.                         |
+| `scripts/productowner/tickets.mjs`            | Validates the model's plan and renders issue bodies.                     |
+| `scripts/productowner/project.mjs`            | Adds issues to the board and sets its fields.                            |
+| `scripts/lib/gemini.mjs`                      | Gemini client with retries, shared with BullyBot.                        |
 
 ## Tests
 

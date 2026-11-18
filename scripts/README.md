@@ -14,7 +14,10 @@ He's programmed to be salty. What he looks at, how to silence him and how to set
 
 The Product Owner is BullyBot's friendly counterpart: run it manually with a rough feature direction
 and it files well-formed tickets with acceptance criteria on the backlog and the project board.
-Setup, inputs and troubleshooting are in [productowner/README.md](productowner/README.md).
+A second manual workflow, **Product Owner cleanup**, finds stale issues (implemented, duplicate,
+superseded or inactive), explains why and closes or labels them. It is a dry run unless you switch
+that off, and it caps how many issues it touches (`dry_run`, `stale_days`, `max_issues`).
+Setup, inputs and troubleshooting are in [productowner/README.md](productowner/README.md#cleaning-up-the-backlog).
 
 ## Tests
 

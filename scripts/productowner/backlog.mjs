@@ -29,6 +29,13 @@ export async function fetchBacklog({ github, owner, repo }) {
       body: i.body ?? '',
       labels: i.labels.map((l) => (typeof l === 'string' ? l : l.name)),
       milestone: i.milestone?.title ?? null,
+      updatedAt: i.updated_at ?? null,
+      // sub-issues of an epic: open ones mean the epic is still in progress
+      openSubIssues: Math.max(
+        0,
+        (i.sub_issues_summary?.total ?? 0) - (i.sub_issues_summary?.completed ?? 0),
+      ),
+      subIssues: i.sub_issues_summary?.total ?? 0,
     }));
 }
 

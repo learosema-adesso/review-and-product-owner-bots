@@ -1,0 +1,85 @@
+name: Product Owner cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only list the proposals in the job summary, do not change anything'
+        required: false
+        default: true
+        type: boolean
+      stale_days:
+        description: 'Days without activity before an issue counts as inactive'
+        required: false
+        default: '90'
+        type: string
+      max_issues:
+        description: 'Maximum number of issues to touch in one run (1-50)'
+        required: false
+        default: '10'
+        type: string
+
+permissions:
+  contents: read
+  issues: write # comment, label and close issues
+
+# Shares the group with the ticket creation: both change the backlog
+concurrency:
+  group: product-owner
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      # secrets cannot be used in "if:" directly, so the check goes through an env variable
+      APP_CONFIGURED: ${{ secrets.PRODUCT_OWNER_CLIENT_ID != '' && secrets.PRODUCT_OWNER_APP_KEY != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts --prefix scripts
+
+      # Same GitHub App as the Product Owner: the comments are written by the app, not by github-actions.
+      # Without the app, the workflow token is enough (it can write issues).
+      - name: Create GitHub App token
+        id: app
+        if: env.APP_CONFIGURED == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.PRODUCT_OWNER_CLIENT_ID }}
+          private-key: ${{ secrets.PRODUCT_OWNER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Run Product Owner cleanup
+        uses: actions/github-script@v9
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # passed via env, never interpolated into the script
+          DRY_RUN: ${{ inputs.dry_run }}
+          STALE_DAYS: ${{ inputs.stale_days }}
+          MAX_ISSUES: ${{ inputs.max_issues }}
+        with:
+          github-token: ${{ steps.app.outputs.token || github.token }}
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const file = path.join(process.env.GITHUB_WORKSPACE, 'scripts/productowner-cleanup.mjs');
+            const { productOwnerCleanup } = await import(pathToFileURL(file).href);
+            await productOwnerCleanup({
+              github,
+              context,
+              core,
+              dryRun: process.env.DRY_RUN !== 'false',
+              staleDays: process.env.STALE_DAYS,
+              maxIssues: process.env.MAX_ISSUES,
+            });
