@@ -1,3 +1,4 @@
+import { answerThread, resolveInstruction } from './bullybot/threads.mjs';
 import { askFromEnv } from './lib/llm.mjs';
 import { parseDiff, isNoise } from './bullybot/diff.mjs';
 import { gatherContext, fitSections } from './bullybot/context.mjs';
@@ -129,7 +130,13 @@ const isBotAuthor = (user) => user?.type === 'Bot' || user?.login?.endsWith('[bo
 const stripMarkers = (s) =>
   s.replaceAll(MARKER, '').replaceAll(BOT_RESOLVED, '').replaceAll(ACCEPTANCE_MARKER, '').trim();
 
-export async function bullybot({ github, context, core, prNumber: prNumberInput }) {
+export async function bullybot({
+  github,
+  context,
+  core,
+  prNumber: prNumberInput,
+  canResolveThreads = false, // true with the token of the GitHub App: he resolves threads himself
+}) {
   const { owner, repo } = context.repo;
   const prNumber = Number(prNumberInput ?? context.issue?.number);
   if (!Number.isInteger(prNumber) || prNumber <= 0) {
@@ -249,9 +256,7 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
           'Stay salty, but aim it at yourself or the situation, never deflect the blame to the human, ' +
           'never pretend the finding was half right, and never turn the concession into a new complaint. ' +
           'For "still_open": say why the problem still stands and what would convince you. ' +
-          'For "fixed" and "dispute_accepted", end the reply by telling the human to resolve the thread themselves, ' +
-          'in your voice: you are not allowed to click that button and you are not happy about doing their paperwork ' +
-          '(vary it, e.g. "Go ahead, click Resolve. I\'ll pretend I did it."). Never claim you resolved it.',
+          resolveInstruction(canResolveThreads),
         prompt:
           `Thread on ${thread.path}:\n\n${conversation}\n\n` +
           `Current diff of this file:\n\`\`\`diff\n${fileDiff}\n\`\`\``,
@@ -260,21 +265,21 @@ export async function bullybot({ github, context, core, prNumber: prNumberInput 
       const settle = v.verdict !== 'still_open';
       if (!settle && !lastIsHuman) continue; // nothing new, BullyBot stays quiet
 
-      // The workflow token is not allowed to resolve review threads ("Resource not accessible
-      // by integration"), so BullyBot marks the thread as settled and asks the human to resolve it.
-      const body = `${MARKER}${settle ? BOT_RESOLVED : ''}\n${v.reply}`;
-      await github.graphql(
-        `mutation($threadId: ID!, $body: String!) {
-          addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $threadId, body: $body }) {
-            comment { id }
-          }
-        }`,
-        { threadId: thread.id, body },
-      );
+      // With the token of the GitHub App he resolves the thread himself, with the workflow token
+      // he marks it as settled and asks the human to click "Resolve"
+      const { resolved } = await answerThread({
+        github,
+        core,
+        thread,
+        verdict: v.verdict,
+        reply: v.reply,
+        canResolve: canResolveThreads,
+      });
 
       if (settle) {
-        thread.comments.nodes.push({ body });
-        core.info(`Thread ${thread.id} settled (${v.verdict}).`);
+        // settled for the rest of this run, so the review below does not raise it again
+        thread.comments.nodes.push({ body: `${MARKER}${BOT_RESOLVED}` });
+        core.info(`Thread ${thread.id} settled (${v.verdict})${resolved ? ' and resolved' : ''}.`);
       }
     } catch (error) {
       core.warning(`Thread ${thread.id} skipped: ${error.message}`);

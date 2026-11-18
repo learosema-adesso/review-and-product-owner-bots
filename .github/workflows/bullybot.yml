@@ -19,7 +19,9 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: bullybot-${{ github.event.pull_request.number || inputs.pr_number }}
+  # Comments of the GitHub App (BullyBot's own) start runs that do nothing. They get their own
+  # group, so they can never push a waiting run of the same PR out of the queue.
+  group: bullybot-${{ github.event.pull_request.number || inputs.pr_number }}${{ github.event.comment.user.type == 'Bot' && '-bot' || '' }}
   # a thread reply must not cancel a running full review; it waits in the queue instead
   cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
 
@@ -35,6 +37,9 @@ jobs:
       (github.event_name != 'pull_request_review_comment' ||
       github.event.comment.user.type != 'Bot'))
     runs-on: ubuntu-latest
+    env:
+      # secrets cannot be used in "if:" directly, so the check goes through an env variable
+      APP_CONFIGURED: ${{ secrets.PRODUCT_OWNER_CLIENT_ID != '' && secrets.PRODUCT_OWNER_APP_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -45,9 +50,27 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: scripts/package-lock.json
-      
+
       - name: Install Dependencies
         run: npm ci --ignore-scripts --prefix scripts
+
+      # With the GitHub App, BullyBot's comments come from the app and he can resolve review threads
+      # himself (the workflow token cannot). The app needs "Pull requests: Read and write".
+      # If the token cannot be created (secrets missing, permission not accepted yet), he carries on
+      # with the workflow token and asks the human to click "Resolve", as before.
+      - name: Create GitHub App token
+        id: app
+        if: env.APP_CONFIGURED == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.PRODUCT_OWNER_CLIENT_ID }}
+          private-key: ${{ secrets.PRODUCT_OWNER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: write
 
       - name: Run Mean AI Reviewer
         uses: actions/github-script@v9
@@ -63,8 +86,10 @@ jobs:
           GEMINI_PROJECT_ID: ${{ vars.GEMINI_PROJECT_ID }}
           GEMINI_LOCATION: ${{ vars.GEMINI_LOCATION }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          # true only when the app token exists: then he resolves threads himself
+          CAN_RESOLVE_THREADS: ${{ steps.app.outputs.token != '' }}
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ steps.app.outputs.token || github.token }}
           script: |
             const path = require('path');
             const { pathToFileURL } = require('url');
@@ -75,4 +100,5 @@ jobs:
               context,
               core,
               prNumber: Number(process.env.PR_NUMBER),
+              canResolveThreads: process.env.CAN_RESOLVE_THREADS === 'true',
             });
