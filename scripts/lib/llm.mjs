@@ -1,5 +1,5 @@
-import { createGeminiProvider, DEFAULT_GEMINI_MODEL } from './gemini.mjs';
-import { createOpenAiProvider } from './openai.mjs';
+import { createGeminiProvider, DEFAULT_GEMINI_MODEL } from './providers/gemini.mjs';
+import { createOpenAiProvider } from './providers/openai.mjs';
 
 /**
  * The one place that talks to an AI provider. Both bots call `ask()` and do not care which

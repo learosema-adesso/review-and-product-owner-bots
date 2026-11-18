@@ -1,5 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 const RETRYABLE = new Set([429, 500, 503]);
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -13,15 +11,27 @@ export function createGeminiProvider({
   model = DEFAULT_GEMINI_MODEL,
   projectId,
   location = 'us-central1',
-  ai = new GoogleGenAI({ apiKey, enterprise: true, project: projectId, location }),
+  ai,
   sleep = defaultSleep,
 }) {
+  // The SDK is only loaded when this provider is used: other providers do not need it
+  let client = ai;
+  const getClient = async () => {
+    if (!client) {
+      const { GoogleGenAI } = await import('@google/genai');
+      client = new GoogleGenAI({ apiKey, enterprise: true, project: projectId, location });
+    }
+    return client;
+  };
+
   return async function ask({ system, prompt, schema, temperature = 0.85 }) {
     let response;
 
     for (let attempt = 1; ; attempt++) {
       try {
-        response = await ai.models.generateContent({
+        response = await (
+          await getClient()
+        ).models.generateContent({
           model,
           contents: prompt,
           config: {

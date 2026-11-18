@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { askFromEnv, createLlm, loadLlmConfig, DEFAULT_BASE_URL } from './llm.mjs';
 
@@ -128,4 +129,25 @@ test('askFromEnv fails the job with the message instead of throwing', () => {
   };
   assert.equal(typeof askFromEnv(ok, { env: { GEMINI_API_KEY: 'g' }, ai: {} }), 'function');
   assert.match(ok.infos[0], /AI provider: gemini, model: gemini-3.6-flash/);
+});
+
+test('the Gemini SDK is not loaded when another provider is used', () => {
+  // A child process where importing the SDK throws: the openai provider must work regardless
+  const script = `
+    import { registerHooks } from 'node:module';
+    registerHooks({
+      resolve(specifier, context, next) {
+        if (specifier === '@google/genai') throw new Error('the Gemini SDK was loaded');
+        return next(specifier, context);
+      },
+    });
+    const { createLlm } = await import(${JSON.stringify(new URL('./llm.mjs', import.meta.url).href)});
+    const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'ok' } }] }) });
+    const { ask } = createLlm({ env: { LLM_PROVIDER: 'openai', LLM_API_KEY: 'k', LLM_MODEL: 'm' }, fetchImpl });
+    console.log(await ask({ system: 's', prompt: 'p' }));
+  `;
+  const out = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    encoding: 'utf8',
+  });
+  assert.equal(out.trim(), 'ok');
 });

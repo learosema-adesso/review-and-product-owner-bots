@@ -281,25 +281,25 @@ markers, instructions in it are ignored. Always start with a dry run.
 
 ## Files
 
-| File                                          | Purpose                                                                  |
-| --------------------------------------------- | ------------------------------------------------------------------------ |
-| `.github/workflows/product-owner.yml`         | The manually triggered workflow.                                         |
-| `.github/workflows/product-owner-cleanup.yml` | The manually triggered backlog cleanup.                                  |
-| `.github/workflows/product-owner-refine.yml`  | The manually triggered ticket refinement.                                |
-| `scripts/productowner-refine.mjs`             | Orchestration of the refinement: prompts, per-ticket flow.               |
-| `scripts/productowner/refine.mjs`             | Refinement logic: candidates, validation, merging text, comments.        |
-| `scripts/productowner/boardinfo.mjs`          | Reads the Size on the board and the Priority issue field.                |
-| `scripts/productowner/publish.mjs`            | Writes issues, sub-issue links, Priority and board fields.               |
-| `scripts/productowner-cleanup.mjs`            | Orchestration of the cleanup: prompt, applying the verdicts.             |
-| `scripts/productowner/cleanup.mjs`            | Cleanup logic: who may be touched, verdict validation, comments, report. |
-| `scripts/productowner.mjs`                    | Orchestration: persona, prompt, creating issues, run report.             |
-| `scripts/productowner/context.mjs`            | Reads the product (README, guidelines, source) from the default branch.  |
-| `scripts/productowner/backlog.mjs`            | Loads and formats issues, labels and milestones.                         |
-| `scripts/productowner/tickets.mjs`            | Validates the model's plan and renders issue bodies.                     |
-| `scripts/productowner/project.mjs`            | Adds issues to the board and sets its fields.                            |
-| `scripts/lib/llm.mjs`                         | Picks the AI provider from the environment, shared with BullyBot.        |
-| `scripts/lib/gemini.mjs`, `openai.mjs`        | The providers: Gemini, and any OpenAI-compatible API.                    |
-| `scripts/lib/llm-schema.mjs`                  | Converts the answer schemas and checks answers against them.             |
+| File                                          | Purpose                                                                    |
+| --------------------------------------------- | -------------------------------------------------------------------------- |
+| `.github/workflows/product-owner.yml`         | The manually triggered workflow.                                           |
+| `.github/workflows/product-owner-cleanup.yml` | The manually triggered backlog cleanup.                                    |
+| `.github/workflows/product-owner-refine.yml`  | The manually triggered ticket refinement.                                  |
+| `scripts/productowner-refine.mjs`             | Orchestration of the refinement: prompts, per-ticket flow.                 |
+| `scripts/productowner/refine.mjs`             | Refinement logic: candidates, validation, merging text, comments.          |
+| `scripts/productowner/boardinfo.mjs`          | Reads the Size on the board and the Priority issue field.                  |
+| `scripts/productowner/publish.mjs`            | Writes issues, sub-issue links, Priority and board fields.                 |
+| `scripts/productowner-cleanup.mjs`            | Orchestration of the cleanup: prompt, applying the verdicts.               |
+| `scripts/productowner/cleanup.mjs`            | Cleanup logic: who may be touched, verdict validation, comments, report.   |
+| `scripts/productowner.mjs`                    | Orchestration: persona, prompt, creating issues, run report.               |
+| `scripts/productowner/context.mjs`            | Reads the product (README, guidelines, source) from the default branch.    |
+| `scripts/productowner/backlog.mjs`            | Loads and formats issues, labels and milestones.                           |
+| `scripts/productowner/tickets.mjs`            | Validates the model's plan and renders issue bodies.                       |
+| `scripts/productowner/project.mjs`            | Adds issues to the board and sets its fields.                              |
+| `scripts/lib/llm.mjs`                         | Picks the AI provider from the environment, shared with BullyBot.          |
+| `scripts/lib/providers/`                      | One file per provider: `gemini.mjs` and `openai.mjs` (any compatible API). |
+| `scripts/lib/llm-schema.mjs`                  | Converts the answer schemas and checks answers against them.               |
 
 ## Tests
 

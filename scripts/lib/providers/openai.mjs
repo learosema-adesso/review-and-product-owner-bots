@@ -1,4 +1,4 @@
-import { toJsonSchema, validateAgainstSchema } from './llm-schema.mjs';
+import { toJsonSchema, validateAgainstSchema } from '../llm-schema.mjs';
 
 /**
  * Provider for every service with an OpenAI-compatible chat completions API (OpenAI, OpenRouter,

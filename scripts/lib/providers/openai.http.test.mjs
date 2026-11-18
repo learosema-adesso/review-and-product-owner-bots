@@ -1,7 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createLlm } from './llm.mjs';
+import { createLlm } from '../llm.mjs';
 
 /** A real HTTP server that speaks just enough of the chat completions API. */
 const requests = [];
