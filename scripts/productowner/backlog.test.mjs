@@ -31,6 +31,7 @@ test('fetchBacklog drops pull requests and flattens labels and milestones', asyn
   assert.deepEqual(await fetchBacklog({ github, owner: 'o', repo: 'r' }), [
     {
       number: 1,
+      nodeId: null,
       title: 'A',
       state: 'open',
       body: '',

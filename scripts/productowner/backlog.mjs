@@ -24,6 +24,7 @@ export async function fetchBacklog({ github, owner, repo }) {
     .slice(0, MAX_ISSUES)
     .map((i) => ({
       number: i.number,
+      nodeId: i.node_id ?? null,
       title: i.title,
       state: i.state,
       body: i.body ?? '',

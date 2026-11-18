@@ -1,0 +1,96 @@
+name: Product Owner refine
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Issue number to refine, or "scan" to let the bot pick candidates'
+        required: false
+        default: 'scan'
+        type: string
+      max_issues:
+        description: 'Maximum number of tickets to look at in a scan (1-20)'
+        required: false
+        default: '5'
+        type: string
+      dry_run:
+        description: 'Only show what would change in the job summary, do not change anything'
+        required: false
+        default: true
+        type: boolean
+      apply:
+        description: 'Also create the sub-issues of a proposed split (without it, a split is only proposed in a comment)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write # comment, label and edit issues, create sub-issues
+
+# Shares the group with the other Product Owner workflows: all of them change the backlog
+concurrency:
+  group: product-owner
+  cancel-in-progress: false
+
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    env:
+      # secrets cannot be used in "if:" directly, so the check goes through an env variable
+      APP_CONFIGURED: ${{ secrets.PRODUCT_OWNER_CLIENT_ID != '' && secrets.PRODUCT_OWNER_APP_KEY != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts --prefix scripts
+
+      # Same GitHub App as the Product Owner. Reading sizes and priorities and writing them needs the
+      # board and the organization's issue fields, which the workflow token cannot reach.
+      - name: Create GitHub App token
+        id: app
+        if: env.APP_CONFIGURED == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.PRODUCT_OWNER_CLIENT_ID }}
+          private-key: ${{ secrets.PRODUCT_OWNER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Run Product Owner refine
+        uses: actions/github-script@v9
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PROJECT_TOKEN: ${{ steps.app.outputs.token || secrets.PROJECT_TOKEN }}
+          PROJECT_URL: ${{ vars.PROJECT_URL }}
+          # passed via env, never interpolated into the script
+          ISSUE: ${{ inputs.issue }}
+          MAX_ISSUES: ${{ inputs.max_issues }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          APPLY: ${{ inputs.apply }}
+        with:
+          github-token: ${{ steps.app.outputs.token || github.token }}
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const file = path.join(process.env.GITHUB_WORKSPACE, 'scripts/productowner-refine.mjs');
+            const { productOwnerRefine } = await import(pathToFileURL(file).href);
+            await productOwnerRefine({
+              github,
+              projectGithub: process.env.PROJECT_TOKEN ? getOctokit(process.env.PROJECT_TOKEN) : null,
+              context,
+              core,
+              issue: process.env.ISSUE,
+              maxIssues: process.env.MAX_ISSUES,
+              dryRun: process.env.DRY_RUN !== 'false',
+              apply: process.env.APPLY === 'true',
+              projectUrl: process.env.PROJECT_URL,
+            });

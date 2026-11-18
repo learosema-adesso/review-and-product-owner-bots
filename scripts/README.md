@@ -17,7 +17,11 @@ and it files well-formed tickets with acceptance criteria on the backlog and the
 A second manual workflow, **Product Owner cleanup**, finds stale issues (implemented, duplicate,
 superseded or inactive), explains why and closes or labels them. It is a dry run unless you switch
 that off, and it caps how many issues it touches (`dry_run`, `stale_days`, `max_issues`).
-Setup, inputs and troubleshooting are in [productowner/README.md](productowner/README.md#cleaning-up-the-backlog).
+A third one, **Product Owner refine**, takes a ticket (or scans for candidates) and fills in a missing
+description or acceptance criteria, rewrites unclear text only when the context settles it, asks
+questions otherwise, and proposes splitting tickets that are too big (inputs: `issue`, `max_issues`,
+`dry_run`, `apply`). Setup, inputs and troubleshooting are in
+[productowner/README.md](productowner/README.md).
 
 ## Tests
 

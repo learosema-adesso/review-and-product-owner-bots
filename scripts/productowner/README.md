@@ -183,7 +183,7 @@ summary, then run again without `dry_run`. Two runs with the same direction can 
 tickets, so don't expect the second run to match the dry run word for word. Duplicates of issues
 that already exist are filtered, which makes a repeated run safe, though not free.
 
-Only one run at a time is allowed (this includes the cleanup), further runs wait in the queue.
+Only one run at a time is allowed (this includes the cleanup and the refinement), further runs wait in the queue.
 
 ## Cleaning up the backlog
 
@@ -219,6 +219,49 @@ job fails only if nothing could be cleaned up. Issue text is data: instructions 
 Always start with a dry run and read the reasons. Closing is the one thing in this bot that is hard to
 undo in bulk, so it is on you to start the real run.
 
+## Refining tickets
+
+**Actions → Product Owner refine → Run workflow** takes tickets that already exist and makes them
+ready to pick up. Same setup as the Product Owner; it also needs the board access for sizes and
+priorities (without it, text is still refined, but size and priority are neither read nor set).
+
+| Input        | Meaning                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| `issue`      | An issue number, or `scan` (default) to let the bot pick candidates.                               |
+| `max_issues` | How many tickets a scan looks at. Default 5, hard limit 20.                                        |
+| `dry_run`    | Default **on**: show what would change in the job summary and change nothing.                      |
+| `apply`      | Also create the sub-issues of a proposed split. Without it, a split is only proposed in a comment. |
+
+**What a scan picks:** open issues that are no epics and wait for no answer (label `needs-info`)
+and that have no description, no acceptance criteria, more than 8 criteria, size L or XL on the
+board, or a vague wording (the model judges that in one extra call). The clearest cases come first.
+`issue: 123` refines exactly that ticket, even if it looks fine (then the answer is usually "nothing
+to do").
+
+**What it does with a ticket:**
+
+- **Missing sections are appended** below the existing text: a goal if there is no description,
+  acceptance criteria (as a `- [ ]` list, so BullyBot can read them) if there are none. Well-formed
+  human text is never touched.
+- **Unclear text is rewritten** only when the code, the backlog or the guidelines settle the open
+  question. The original text stays in a collapsed section of the comment.
+- **If the context does not settle it, it asks.** The text stays as it is, specific questions go
+  into a comment and the issue gets the label `needs-info`. A scan skips such issues until someone
+  removes the label.
+- **Proposes a split** for tickets that are sized L or XL, cover several independent behaviors or
+  have more than 8 criteria. Every criterion of the original ticket lands in exactly one sub-ticket
+  with its original wording (the model only chooses where it goes and may add criteria of its own);
+  a split that loses or doubles a criterion is discarded. Without `apply` it is a comment. With
+  `apply` the sub-tickets are created as sub-issues of the original ticket, inherit its labels and
+  milestone, and go on the board.
+- **Sets Size and Priority** of a refined ticket only where they are empty. Values a person (or an
+  earlier run) has set are never overwritten.
+
+Every change is explained in a comment on the issue, written **before** the text is edited. The job
+summary lists everything that was or would be changed. A failing ticket does not stop the others,
+and the job fails only if every ticket failed. Issue text is passed to the model as data inside
+markers, instructions in it are ignored. Always start with a dry run.
+
 ## Troubleshooting
 
 | Symptom                                      | Likely cause and fix                                                                                                                                                                     |
@@ -240,6 +283,11 @@ undo in bulk, so it is on you to start the real run.
 | --------------------------------------------- | ------------------------------------------------------------------------ |
 | `.github/workflows/product-owner.yml`         | The manually triggered workflow.                                         |
 | `.github/workflows/product-owner-cleanup.yml` | The manually triggered backlog cleanup.                                  |
+| `.github/workflows/product-owner-refine.yml`  | The manually triggered ticket refinement.                                |
+| `scripts/productowner-refine.mjs`             | Orchestration of the refinement: prompts, per-ticket flow.               |
+| `scripts/productowner/refine.mjs`             | Refinement logic: candidates, validation, merging text, comments.        |
+| `scripts/productowner/boardinfo.mjs`          | Reads the Size on the board and the Priority issue field.                |
+| `scripts/productowner/publish.mjs`            | Writes issues, sub-issue links, Priority and board fields.               |
 | `scripts/productowner-cleanup.mjs`            | Orchestration of the cleanup: prompt, applying the verdicts.             |
 | `scripts/productowner/cleanup.mjs`            | Cleanup logic: who may be touched, verdict validation, comments, report. |
 | `scripts/productowner.mjs`                    | Orchestration: persona, prompt, creating issues, run report.             |
