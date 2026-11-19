@@ -79,3 +79,9 @@ test('"." means the whole repository', () => {
   assert.equal(detectSourceDirs(['src/a.ts', 'lib/b.ts'], parseSourceDirs('.')), null);
   assert.equal(detectSourceDirs(['src/a.ts'], parseSourceDirs('src, .')), null);
 });
+
+test('detectSourceDirs: a directory with only tests or build output does not count', () => {
+  assert.deepEqual(detectSourceDirs(['src/a.spec.ts', 'src/dist/b.js', 'packages/c/c.ts']), [
+    'packages',
+  ]);
+});

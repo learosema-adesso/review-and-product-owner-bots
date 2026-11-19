@@ -34,9 +34,7 @@ export function detectSourceDirs(tree, configured = []) {
   // "." means the whole repository
   if (configured.includes('.')) return null;
   if (configured.length) return configured;
-  const found = DEFAULT_SOURCE_DIRS.filter((dir) =>
-    tree.some((p) => inDir(p, dir) && SOURCE_FILE.test(p)),
-  );
+  const found = DEFAULT_SOURCE_DIRS.filter((dir) => selectSourceFiles(tree, [dir]).length > 0);
   return found.length ? found : null;
 }
 
