@@ -82,6 +82,13 @@ test('only an open thread with a human request as last word counts', () => {
     isFixRequest(thread(comment('fix it', { author: { login: 'dependabot', __typename: 'Bot' } }))),
     false,
   );
+  assert.equal(
+    isFixRequest(
+      thread(comment('fix it', { author: { login: 'renovate[bot]', __typename: 'User' } })),
+    ),
+    false,
+  );
+  assert.equal(isFixRequest(thread(comment(null))), false);
   assert.equal(isFixRequest(thread(comment(`${MARKER} fix it`))), false);
   assert.equal(isFixRequest({ ...thread(comment('fix it')), isResolved: true }), false);
   assert.equal(
@@ -226,6 +233,21 @@ test('a request from someone with write access gets a suggestion for exactly the
   assert.match(prompt.prompt, /Lines to replace:\n10: line 10$/);
   assert.match(prompt.prompt, /4: line 4\n/); // context before
   assert.match(prompt.system, /^PERSONA/);
+});
+
+test('a comment without a body does not break the request', async () => {
+  const github = fakeGithub();
+  let prompt;
+  const t = thread(comment(null), comment('fix it'));
+  await run(
+    github,
+    async (opts) => {
+      prompt = opts;
+      return { decision: 'suggest', lines: ['x'], explanation: 'Done.' };
+    },
+    t,
+  );
+  assert.match(prompt.prompt, /Human \(lea\): \n\nHuman \(lea\): fix it/);
 });
 
 test('a range of lines is replaced as a whole', async () => {

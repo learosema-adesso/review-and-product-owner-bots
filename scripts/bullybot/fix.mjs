@@ -29,11 +29,15 @@ export const isFixRequestText = (text) =>
     .split(/[.!?\n]+/)
     .some((sentence) => REQUEST.test(sentence) && !NOT_A_REQUEST.test(sentence));
 
+/** GraphQL says `Bot` for apps; a login ending in `[bot]` is a bot as well (same rule as for PR authors). */
+const isBotAuthor = (author) =>
+  author?.__typename === 'Bot' || author?.login?.endsWith('[bot]') === true;
+
 /** An open thread whose last word is a human asking for a fix. His own and other bots' comments never count. */
 export function isFixRequest(thread) {
   if (thread.isResolved || isSettledByBot(thread)) return false;
   const last = thread.comments.nodes.at(-1);
-  if (!last || last.body?.includes(MARKER) || last.author?.__typename === 'Bot') return false;
+  if (!last || last.body?.includes(MARKER) || isBotAuthor(last.author)) return false;
   return isFixRequestText(last.body);
 }
 
@@ -178,10 +182,10 @@ export async function handleFixRequest({
   const from = Math.max(1, range.start - CONTEXT_LINES);
   const to = Math.min(fileLines.length, range.end + CONTEXT_LINES);
   const conversation = thread.comments.nodes
-    .map(
-      (c) =>
-        `${c.body.includes(MARKER) ? 'BullyBot' : `Human (${c.author?.login})`}: ${c.body.replaceAll(MARKER, '').replaceAll(FIX_MARKER, '').trim()}`,
-    )
+    .map((c) => {
+      const body = String(c.body ?? '');
+      return `${body.includes(MARKER) ? 'BullyBot' : `Human (${c.author?.login})`}: ${body.replaceAll(MARKER, '').replaceAll(FIX_MARKER, '').trim()}`;
+    })
     .join('\n\n');
 
   const answer = await ask({
