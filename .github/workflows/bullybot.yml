@@ -155,9 +155,11 @@ jobs:
           CAN_RESOLVE_THREADS: ${{ steps.app.outputs.token != '' }}
           # longest suggestion he posts when asked to "fix it" (default 40)
           BULLYBOT_FIX_MAX_LINES: ${{ vars.BULLYBOT_FIX_MAX_LINES }}
-          # a requested fix is handed to the jobs below (tests, then push) if a test command is given
-          # and the app token exists (the push needs it); otherwise he suggests as before
-          BULLYBOT_FIX_PUSH: ${{ inputs.fix_test_command != '' && steps.app.outputs.token != '' }}
+          # a requested fix is handed to the jobs below (tests, then push) if a test command is given,
+          # the app token exists (the push needs it) and the run belongs to the pull request itself.
+          # Not for manual runs: their cache is the one of the default branch, and the tests run code of the
+          # pull request that could poison it. A pull request has a cache of its own. Otherwise he suggests.
+          BULLYBOT_FIX_PUSH: ${{ inputs.fix_test_command != '' && steps.app.outputs.token != '' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_review_comment') }}
         with:
           github-token: ${{ steps.app.outputs.token || github.token }}
           script: |
@@ -182,7 +184,7 @@ jobs:
   #   fix-finish  with green tests, pushes the commit with a new app token, otherwise suggests the fix
   fix-test:
     needs: bully
-    if: ${{ needs.bully.outputs.fix_pending == 'true' }}
+    if: ${{ needs.bully.outputs.fix_pending == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_review_comment') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -252,7 +254,7 @@ jobs:
 
   fix-finish:
     needs: [bully, fix-test]
-    if: ${{ always() && needs.bully.outputs.fix_pending == 'true' }}
+    if: ${{ always() && needs.bully.outputs.fix_pending == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_review_comment') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

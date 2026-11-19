@@ -99,6 +99,8 @@ limit (`BULLYBOT_FIX_MAX_LINES`), on a branch of the same repository.
 
 What he **refuses**, and answers with the suggestion and the reason instead:
 
+- manual runs (`workflow_dispatch`): their cache is the one of the default branch, and the tests run code
+  of the pull request that could poison it. Pull request events have a cache of their own.
 - pull requests from forks, the default branch, protected branches, files under `.github/`
 - a second fix for the same thread, and more than one fix per run
 - a branch that moved since he made the fix (he never retries on his own and never forces a push), a

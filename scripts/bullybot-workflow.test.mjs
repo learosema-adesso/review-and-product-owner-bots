@@ -99,17 +99,28 @@ test('data from job outputs and inputs reaches the shell only through the enviro
       assert.doesNotMatch(line, /\$\{\{/, `${name} puts an expression into a script: ${line}`);
 });
 
-test('a fix is only proposed with a test command and an app token, and the jobs wait for a proposal', () => {
-  assert.match(
-    all.bully,
-    /BULLYBOT_FIX_PUSH: \$\{\{ inputs\.fix_test_command != '' && steps\.app\.outputs\.token != '' \}\}/,
+const PR_EVENTS =
+  "(github.event_name == 'pull_request' || github.event_name == 'pull_request_review_comment')";
+
+test('a fix is only proposed with a test command, an app token and an event of the pull request', () => {
+  assert.ok(
+    all.bully.includes(
+      "BULLYBOT_FIX_PUSH: ${{ inputs.fix_test_command != '' && steps.app.outputs.token != '' && " +
+        PR_EVENTS +
+        ' }}',
+    ),
   );
-  assert.match(all['fix-test'], /if: \$\{\{ needs\.bully\.outputs\.fix_pending == 'true' \}\}/);
+  // a manual run has the cache of the default branch, which code of the pull request could poison
+  for (const name of ['fix-test', 'fix-finish']) assert.ok(all[name].includes(PR_EVENTS), name);
+});
+
+test('the jobs wait for a proposal and have no concurrency group of their own', () => {
+  assert.match(all['fix-test'], /if: \$\{\{ needs\.bully\.outputs\.fix_pending == 'true' && /);
   assert.match(
     all['fix-finish'],
-    /if: \$\{\{ always\(\) && needs\.bully\.outputs\.fix_pending == 'true' \}\}/,
+    /if: \$\{\{ always\(\) && needs\.bully\.outputs\.fix_pending == 'true' && /,
   );
-  // no job of its own concurrency group: the push starts a new review of the pull request
+  // the push starts a new review of the pull request, which must not cancel these jobs
   assert.doesNotMatch(all['fix-test'], /concurrency:/);
   assert.doesNotMatch(all['fix-finish'], /concurrency:/);
 });
