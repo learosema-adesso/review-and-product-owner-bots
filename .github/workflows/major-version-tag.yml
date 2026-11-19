@@ -1,0 +1,27 @@
+name: Major version tag
+
+# Consumers pin the floating major tag (@v1). When a release is published, it moves to the newest
+# release of its major version, so nobody has to move it by hand.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write # to move the tag
+
+jobs:
+  move:
+    # pre-releases never move the floating tag (the script checks the version as well)
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository with all tags
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Move the major version tag
+        env:
+          # passed via env, never interpolated into the script
+          TAG: ${{ github.event.release.tag_name }}
+        run: bash .github/scripts/move-major-tag.sh "$TAG"

@@ -148,6 +148,13 @@ npx prettier@3.8.1 --check .
 
 Every change is a pull request with a ticket, checked by CI and reviewed by BullyBot himself.
 
+### Releasing
+
+Publish a GitHub release for a tag like `v1.2.0`. The workflow
+[`major-version-tag.yml`](.github/workflows/major-version-tag.yml) then moves the floating tag `v1` to
+it, as long as it is the newest `v1.x.y` release. Pre-releases (`v1.3.0-beta.1`) and fixes for an
+older line do not move it. The exact tags (`v1.2.0`) are protected by a ruleset and never change.
+
 ## License
 
 [MIT](LICENSE)
