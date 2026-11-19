@@ -86,7 +86,12 @@ const referenced = (...workflows) =>
       ref: "x",
     })),
   });
-const FILES = readdirSync(WORKFLOWS).filter((f) => f.endsWith(".yml"));
+// Only the reusable workflows: the folder also holds workflows of this repository itself (callers).
+const FILES = readdirSync(WORKFLOWS)
+  .filter((f) => f.endsWith(".yml"))
+  .filter((f) =>
+    /^\s{2}workflow_call:/m.test(readFileSync(join(WORKFLOWS, f), "utf8")),
+  );
 
 test("there are the four reusable workflows, each with the step", () => {
   assert.deepEqual(FILES.sort(), [
@@ -97,7 +102,7 @@ test("there are the four reusable workflows, each with the step", () => {
   ]);
 });
 
-for (const file of readdirSync(WORKFLOWS).filter((f) => f.endsWith(".yml"))) {
+for (const file of FILES) {
   test(`${file}: takes repository and commit of its own file from the run`, () => {
     const r = run(file, {
       ghOutput: referenced([
