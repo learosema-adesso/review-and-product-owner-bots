@@ -1,0 +1,36 @@
+# Runs the Product Owner on this repository, using the reusable workflow of this very repository
+# (the version of the branch it runs on). For other repositories see examples/product-owner-cleanup.yml.
+name: Product Owner cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only list the proposals in the job summary, do not change anything'
+        required: false
+        default: true
+        type: boolean
+      stale_days:
+        description: 'Days without activity before an issue counts as inactive'
+        required: false
+        default: '90'
+        type: string
+      max_issues:
+        description: 'Maximum number of issues to touch in one run (1-50)'
+        required: false
+        default: '10'
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  cleanup:
+    uses: ./.github/workflows/product-owner-cleanup.yml
+    with:
+      dry_run: ${{ inputs.dry_run }}
+      stale_days: ${{ inputs.stale_days }}
+      max_issues: ${{ inputs.max_issues }}
+    secrets: inherit
