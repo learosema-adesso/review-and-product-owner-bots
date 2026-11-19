@@ -102,6 +102,10 @@ Copy the files you want from [`examples/`](examples) to `.github/workflows/` of 
 | [`product-owner-cleanup.yml`](examples/product-owner-cleanup.yml) | Run by hand, tidies the backlog (dry run by default) |
 | [`product-owner-refine.yml`](examples/product-owner-refine.yml)   | Run by hand, completes and splits tickets            |
 
+Optional: with `fix_test_command` in the `with:` block of the BullyBot caller, a `fix it` makes him
+push the fix to the branch of the pull request after your tests passed on it
+([how it works](scripts/bullybot/README.md#letting-him-push-the-fix-optional)).
+
 Open a pull request and BullyBot will look at it. Start the Product Owner workflows from the
 **Actions** tab, and begin with `dry_run` on.
 

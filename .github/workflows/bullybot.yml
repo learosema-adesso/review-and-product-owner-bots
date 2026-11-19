@@ -13,6 +13,19 @@ on:
         required: false
         type: number
         default: 0
+      fix_test_command:
+        description: >-
+          Lets BullyBot push a requested fix ("fix it" in his thread) to the branch of the pull request, after
+          this command passed on the fixed code, for example "npm ci && npm test". Empty: he only suggests
+          fixes. Needs the GitHub App. The command runs in a job without secrets and without write access.
+        required: false
+        type: string
+        default: ''
+      fix_node_version_file:
+        description: 'File with the Node.js version for the test command, for example .nvmrc. Empty: the version of the runner.'
+        required: false
+        type: string
+        default: ''
       scripts_ref:
         description: 'Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts'
         required: false
@@ -41,6 +54,12 @@ jobs:
       (github.event_name != 'pull_request_review_comment' ||
       github.event.comment.user.type != 'Bot'))
     runs-on: ubuntu-latest
+    outputs:
+      # a requested fix, as data, for the jobs below (see "Fix it with a push")
+      fix_pending: ${{ steps.review.outputs.fix_pending }}
+      fix_proposal: ${{ steps.review.outputs.fix_proposal }}
+      bots_repository: ${{ steps.bots.outputs.repository }}
+      bots_sha: ${{ steps.bots.outputs.sha }}
     permissions:
       contents: read
       issues: read # linked issues and their acceptance criteria
@@ -118,6 +137,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Run Mean AI Reviewer
+        id: review
         uses: actions/github-script@v9
         env:
           # AI provider: gemini (default) or any OpenAI-compatible service, see the README
@@ -135,6 +155,9 @@ jobs:
           CAN_RESOLVE_THREADS: ${{ steps.app.outputs.token != '' }}
           # longest suggestion he posts when asked to "fix it" (default 40)
           BULLYBOT_FIX_MAX_LINES: ${{ vars.BULLYBOT_FIX_MAX_LINES }}
+          # a requested fix is handed to the jobs below (tests, then push) if a test command is given
+          # and the app token exists (the push needs it); otherwise he suggests as before
+          BULLYBOT_FIX_PUSH: ${{ inputs.fix_test_command != '' && steps.app.outputs.token != '' }}
         with:
           github-token: ${{ steps.app.outputs.token || github.token }}
           script: |
@@ -148,5 +171,142 @@ jobs:
               core,
               prNumber: Number(process.env.PR_NUMBER),
               canResolveThreads: process.env.CAN_RESOLVE_THREADS === 'true',
+              fixMaxLines: process.env.BULLYBOT_FIX_MAX_LINES,
+              fixPush: process.env.BULLYBOT_FIX_PUSH === 'true',
+            });
+
+  # Fix it with a push. Three jobs with different rights, so the code of the pull request never runs
+  # next to a token that can write:
+  #   bully       proposes the fix (above, has the app token, runs only the scripts of the bots)
+  #   fix-test    applies it to a checkout of the pull request and runs the tests (read-only token, no secrets)
+  #   fix-finish  with green tests, pushes the commit with a new app token, otherwise suggests the fix
+  fix-test:
+    needs: bully
+    if: ${{ needs.bully.outputs.fix_pending == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      log_tail: ${{ steps.log.outputs.tail }}
+    # no secrets here, and a token that can only read: the tests run the code of the pull request
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@v7
+        with:
+          # the commit the proposal was made on, so the fix applies to exactly what the model saw
+          ref: ${{ fromJSON(needs.bully.outputs.fix_proposal).baseSha }}
+          persist-credentials: false
+
+      - name: Check out the scripts
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ needs.bully.outputs.bots_repository }}
+          ref: ${{ needs.bully.outputs.bots_sha }}
+          path: _bots
+          persist-credentials: false
+
+      - name: Set up Node.js for the scripts
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Apply the fix
+        env:
+          # data, never put into the script text
+          PROPOSAL: ${{ needs.bully.outputs.fix_proposal }}
+          BULLYBOT_FIX_MAX_LINES: ${{ vars.BULLYBOT_FIX_MAX_LINES }}
+        run: node _bots/scripts/bullybot-apply.mjs
+
+      # the tests must see the repository as it is, not our scripts
+      - name: Remove the scripts
+        run: rm -rf _bots
+
+      - name: Set up Node.js for the tests
+        if: ${{ inputs.fix_node_version_file != '' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ${{ inputs.fix_node_version_file }}
+
+      - name: Run the tests
+        shell: bash
+        env:
+          FIX_TEST_COMMAND: ${{ inputs.fix_test_command }}
+        run: |
+          set -o pipefail
+          bash -c "$FIX_TEST_COMMAND" 2>&1 | tee "$RUNNER_TEMP/fix-test.log"
+
+      # also after a failure: the thread gets the end of the log (as one line of JSON)
+      - name: Keep the end of the log
+        id: log
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/fix-test.log" ]; then
+            echo "tail=$(tail -n 60 "$RUNNER_TEMP/fix-test.log" | tail -c 6000 | jq -Rs .)" >> "$GITHUB_OUTPUT"
+          fi
+
+  fix-finish:
+    needs: [bully, fix-test]
+    if: ${{ always() && needs.bully.outputs.fix_pending == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ needs.bully.outputs.bots_repository }}
+          ref: ${{ needs.bully.outputs.bots_sha }}
+          path: bots
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Created only now, after the tests. Without the token the job fails, there is no fallback to the
+      # workflow token: pushing and answering the thread need the app.
+      - name: Create GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.PRODUCT_OWNER_CLIENT_ID }}
+          private-key: ${{ secrets.PRODUCT_OWNER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-issues: read
+          permission-pull-requests: write
+
+      - name: Push the fix, or suggest it
+        uses: actions/github-script@v9
+        env:
+          PROPOSAL: ${{ needs.bully.outputs.fix_proposal }}
+          TESTS_RESULT: ${{ needs.fix-test.result }}
+          TEST_LOG: ${{ needs.fix-test.outputs.log_tail }}
+          BULLYBOT_FIX_MAX_LINES: ${{ vars.BULLYBOT_FIX_MAX_LINES }}
+        with:
+          github-token: ${{ steps.app.outputs.token }}
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const file = path.join(process.env.GITHUB_WORKSPACE, 'bots/scripts/bullybot-fix.mjs');
+            const { bullybotFix } = await import(pathToFileURL(file).href);
+            let testLog = '';
+            try {
+              testLog = JSON.parse(process.env.TEST_LOG || '""');
+            } catch {
+              // an unreadable log is no reason to push or not to push
+            }
+            await bullybotFix({
+              github,
+              context,
+              core,
+              proposal: process.env.PROPOSAL,
+              testsResult: process.env.TESTS_RESULT,
+              testLog,
               fixMaxLines: process.env.BULLYBOT_FIX_MAX_LINES,
             });
