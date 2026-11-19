@@ -1,55 +1,103 @@
-name: Product Owner cleanup
+name: Product Owner cleanup (reusable)
+
+# Reusable workflow. Call it from a small workflow of your repository, see examples/.
+# The calling workflow decides the triggers, passes the inputs and has to grant at least the
+# permissions of the job below, plus `actions: read` (see "Find the version of the scripts").
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       dry_run:
-        description: 'Only list the proposals in the job summary, do not change anything'
+        description: "Only list the proposals in the job summary, do not change anything"
         required: false
-        default: true
         type: boolean
+        default: true
       stale_days:
-        description: 'Days without activity before an issue counts as inactive'
+        description: "Days without activity before an issue counts as inactive"
         required: false
-        default: '90'
         type: string
+        default: "90"
       max_issues:
-        description: 'Maximum number of issues to touch in one run (1-50)'
+        description: "Maximum number of issues to touch in one run (1-50)"
         required: false
-        default: '10'
         type: string
-
-permissions:
-  contents: read
-  issues: write # comment, label and close issues
-
-# Shares the group with the ticket creation: both change the backlog
-concurrency:
-  group: product-owner
-  cancel-in-progress: false
+        default: "10"
+      scripts_ref:
+        description: 'Only used if the version cannot be found out (the caller lacks "actions: read"): branch, tag or commit of the scripts'
+        required: false
+        type: string
+        default: v1
+    secrets:
+      LLM_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+      PRODUCT_OWNER_CLIENT_ID:
+        required: false
+      PRODUCT_OWNER_APP_KEY:
+        required: false
+      PROJECT_TOKEN:
+        required: false
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # comment, label and close issues
+      actions: read # find out which version of this workflow is running
+    # The three Product Owner workflows share a group: two runs must never change the backlog at the same time
+    concurrency:
+      group: product-owner
+      cancel-in-progress: false
     env:
       # secrets cannot be used in "if:" directly, so the check goes through an env variable
       APP_CONFIGURED: ${{ secrets.PRODUCT_OWNER_CLIENT_ID != '' && secrets.PRODUCT_OWNER_APP_KEY != '' }}
     steps:
-      - name: Checkout
+      # A called workflow does not know which version of itself it runs (`github.job_workflow_sha` is
+      # empty), but the run API does. The caller has to grant `actions: read` for it. Pinning the
+      # caller to a tag, a branch or a commit therefore runs the scripts of exactly that version.
+      - name: Find the version of the scripts
+        id: bots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_FILE: product-owner-cleanup.yml
+          SCRIPTS_REF: ${{ inputs.scripts_ref }}
+        run: |
+          found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" 2>/dev/null \
+            | jq -r --arg f "/.github/workflows/$WORKFLOW_FILE@" \
+              '[.referenced_workflows[]? | select(.path | contains($f))][0] | select(. != null) | "\(.path) \(.sha)"') || found=""
+          if [ -n "$found" ]; then
+            repository="${found%%/.github/workflows/*}"
+            sha="${found##* }"
+            echo "Scripts: $repository at $sha"
+          else
+            repository="learosema-adesso/review-and-product-owner-bots"
+            sha="$SCRIPTS_REF"
+            echo "::warning::Could not find out which version of $WORKFLOW_FILE is running. The calling workflow needs 'permissions: actions: read'. Using $repository at '$sha' instead."
+          fi
+          echo "repository=$repository" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the scripts
         uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.bots.outputs.repository }}
+          ref: ${{ steps.bots.outputs.sha }}
+          path: bots
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: scripts/package-lock.json
+          cache-dependency-path: bots/scripts/package-lock.json
 
       - name: Install Dependencies
-        run: npm ci --ignore-scripts --prefix scripts
+        run: npm ci --ignore-scripts --prefix bots/scripts
 
-      # Same GitHub App as the Product Owner: the comments are written by the app, not by github-actions.
-      # Without the app, the workflow token is enough (it can write issues).
+      # Preferred: a GitHub App. Its token lives for about an hour, is limited to this repository
+      # and is not tied to a person. Same GitHub App as the Product Owner: the comments are written by the app. Without the app, the workflow token is enough (it can write issues).
       - name: Create GitHub App token
         id: app
         if: env.APP_CONFIGURED == 'true'
@@ -63,7 +111,7 @@ jobs:
       - name: Run Product Owner cleanup
         uses: actions/github-script@v9
         env:
-          # AI provider: gemini (default) or any OpenAI-compatible service, see scripts/README.md
+          # AI provider: gemini (default) or any OpenAI-compatible service, see the README
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
@@ -82,7 +130,7 @@ jobs:
           script: |
             const path = require('path');
             const { pathToFileURL } = require('url');
-            const file = path.join(process.env.GITHUB_WORKSPACE, 'scripts/productowner-cleanup.mjs');
+            const file = path.join(process.env.GITHUB_WORKSPACE, 'bots/scripts/productowner-cleanup.mjs');
             const { productOwnerCleanup } = await import(pathToFileURL(file).href);
             await productOwnerCleanup({
               github,

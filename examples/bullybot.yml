@@ -1,0 +1,33 @@
+# Copy this file to .github/workflows/bullybot.yml of your repository.
+#
+# BullyBot reviews every pull request, answers replies in his review threads and, on request
+# ("fix it" in a thread), suggests a fix. Setup (secrets, GitHub App) is in the README.
+name: BullyBot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # replies in review threads: he only re-checks his own threads (no full review)
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Number of the PR to review"
+        required: true
+        type: number
+
+# What the called workflow needs. "actions: read" lets it find out which version of the scripts
+# it runs, without it the version in "scripts_ref" is used.
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  bullybot:
+    uses: learosema-adesso/review-and-product-owner-bots/.github/workflows/bullybot.yml@v1
+    with:
+      pr_number: ${{ inputs.pr_number || 0 }}
+    secrets: inherit

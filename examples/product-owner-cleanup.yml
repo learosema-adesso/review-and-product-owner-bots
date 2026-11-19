@@ -1,0 +1,38 @@
+# Copy this file to .github/workflows/product-owner-cleanup.yml of your repository.
+#
+# Run it from the Actions tab to tidy the backlog: implemented, duplicate, superseded or inactive
+# issues are proposed (dry run, the default) or closed and labeled with a comment that says why.
+name: Product Owner cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only list the proposals in the job summary, do not change anything"
+        required: false
+        default: true
+        type: boolean
+      stale_days:
+        description: "Days without activity before an issue counts as inactive"
+        required: false
+        default: "90"
+        type: string
+      max_issues:
+        description: "Maximum number of issues to touch in one run (1-50)"
+        required: false
+        default: "10"
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  cleanup:
+    uses: learosema-adesso/review-and-product-owner-bots/.github/workflows/product-owner-cleanup.yml@v1
+    with:
+      dry_run: ${{ inputs.dry_run }}
+      stale_days: ${{ inputs.stale_days }}
+      max_issues: ${{ inputs.max_issues }}
+    secrets: inherit

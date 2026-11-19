@@ -1,0 +1,44 @@
+# Copy this file to .github/workflows/product-owner-refine.yml of your repository.
+#
+# Run it from the Actions tab to refine tickets: missing goals and acceptance criteria are written,
+# unclear tickets get questions, and tickets that are too big get a split proposal (dry run by default).
+name: Product Owner refine
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Issue number to refine, or "scan" to let the bot pick candidates'
+        required: false
+        default: "scan"
+        type: string
+      max_issues:
+        description: "Maximum number of tickets to look at in a scan (1-20)"
+        required: false
+        default: "5"
+        type: string
+      dry_run:
+        description: "Only show what would change in the job summary, do not change anything"
+        required: false
+        default: true
+        type: boolean
+      apply:
+        description: "Also create the sub-issues of a proposed split (without it, a split is only proposed in a comment)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  refine:
+    uses: learosema-adesso/review-and-product-owner-bots/.github/workflows/product-owner-refine.yml@v1
+    with:
+      issue: ${{ inputs.issue }}
+      max_issues: ${{ inputs.max_issues }}
+      dry_run: ${{ inputs.dry_run }}
+      apply: ${{ inputs.apply }}
+    secrets: inherit

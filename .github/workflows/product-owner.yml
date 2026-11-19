@@ -1,55 +1,102 @@
-name: Product Owner
+name: Product Owner (reusable)
+
+# Reusable workflow. Call it from a small workflow of your repository, see examples/.
+# The calling workflow decides the triggers, passes the inputs and has to grant at least the
+# permissions of the job below, plus `actions: read` (see "Find the version of the scripts").
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       direction:
         description: 'Rough direction for new features (e.g. "teams should be able to vote on meeting times")'
         required: true
         type: string
       max_tickets:
-        description: 'Maximum number of tickets to create (1-12)'
+        description: "Maximum number of tickets to create (1-12)"
         required: false
-        default: '6'
         type: string
+        default: "6"
       dry_run:
-        description: 'Only show the plan in the job summary, do not create anything'
+        description: "Only show the plan in the job summary, do not create anything"
         required: false
-        default: false
         type: boolean
-
-permissions:
-  contents: read
-  issues: write # create issues and link sub-issues
-
-# Two runs at the same time could create the same tickets twice
-concurrency:
-  group: product-owner
-  cancel-in-progress: false
+        default: false
+      scripts_ref:
+        description: 'Only used if the version cannot be found out (the caller lacks "actions: read"): branch, tag or commit of the scripts'
+        required: false
+        type: string
+        default: v1
+    secrets:
+      LLM_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+      PRODUCT_OWNER_CLIENT_ID:
+        required: false
+      PRODUCT_OWNER_APP_KEY:
+        required: false
+      PROJECT_TOKEN:
+        required: false
 
 jobs:
   plan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # create issues and link sub-issues
+      actions: read # find out which version of this workflow is running
+    # The three Product Owner workflows share a group: two runs must never change the backlog at the same time
+    concurrency:
+      group: product-owner
+      cancel-in-progress: false
     env:
       # secrets cannot be used in "if:" directly, so the check goes through an env variable
       APP_CONFIGURED: ${{ secrets.PRODUCT_OWNER_CLIENT_ID != '' && secrets.PRODUCT_OWNER_APP_KEY != '' }}
     steps:
-      - name: Checkout
+      # A called workflow does not know which version of itself it runs (`github.job_workflow_sha` is
+      # empty), but the run API does. The caller has to grant `actions: read` for it. Pinning the
+      # caller to a tag, a branch or a commit therefore runs the scripts of exactly that version.
+      - name: Find the version of the scripts
+        id: bots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_FILE: product-owner.yml
+          SCRIPTS_REF: ${{ inputs.scripts_ref }}
+        run: |
+          found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" 2>/dev/null \
+            | jq -r --arg f "/.github/workflows/$WORKFLOW_FILE@" \
+              '[.referenced_workflows[]? | select(.path | contains($f))][0] | select(. != null) | "\(.path) \(.sha)"') || found=""
+          if [ -n "$found" ]; then
+            repository="${found%%/.github/workflows/*}"
+            sha="${found##* }"
+            echo "Scripts: $repository at $sha"
+          else
+            repository="learosema-adesso/review-and-product-owner-bots"
+            sha="$SCRIPTS_REF"
+            echo "::warning::Could not find out which version of $WORKFLOW_FILE is running. The calling workflow needs 'permissions: actions: read'. Using $repository at '$sha' instead."
+          fi
+          echo "repository=$repository" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the scripts
         uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.bots.outputs.repository }}
+          ref: ${{ steps.bots.outputs.sha }}
+          path: bots
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: scripts/package-lock.json
+          cache-dependency-path: bots/scripts/package-lock.json
 
       - name: Install Dependencies
-        run: npm ci --ignore-scripts --prefix scripts
+        run: npm ci --ignore-scripts --prefix bots/scripts
 
       # Preferred: a GitHub App. Its token lives for about an hour, is limited to this repository
-      # and is not tied to a person. The workflow token cannot write to Projects or read the
-      # organization's issue fields, so the app token is used for everything below.
+      # and is not tied to a person. The workflow token cannot write to Projects or read the organization's issue fields, so the app token is used for everything below.
       - name: Create GitHub App token
         id: app
         if: env.APP_CONFIGURED == 'true'
@@ -63,7 +110,7 @@ jobs:
       - name: Run Product Owner
         uses: actions/github-script@v9
         env:
-          # AI provider: gemini (default) or any OpenAI-compatible service, see scripts/README.md
+          # AI provider: gemini (default) or any OpenAI-compatible service, see the README
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
@@ -82,12 +129,11 @@ jobs:
           MAX_TICKETS: ${{ inputs.max_tickets }}
           DRY_RUN: ${{ inputs.dry_run }}
         with:
-          # with the app token, the issues are created by the app instead of github-actions
           github-token: ${{ steps.app.outputs.token || github.token }}
           script: |
             const path = require('path');
             const { pathToFileURL } = require('url');
-            const file = path.join(process.env.GITHUB_WORKSPACE, 'scripts/productowner.mjs');
+            const file = path.join(process.env.GITHUB_WORKSPACE, 'bots/scripts/productowner.mjs');
             const { productOwner } = await import(pathToFileURL(file).href);
             await productOwner({
               github,
