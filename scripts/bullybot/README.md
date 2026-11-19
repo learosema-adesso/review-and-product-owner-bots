@@ -148,8 +148,9 @@ Large PRs are cut down by priority, the least important context goes first (diff
    the secrets `PRODUCT_OWNER_CLIENT_ID` and `PRODUCT_OWNER_APP_KEY` are shared). Add two permissions
    to the app (app settings → Permissions & events):
    - **Repository permissions → Pull requests: Read and write** (reviews, comments, thread replies)
-   - **Repository permissions → Contents: Read and write**: he never writes code, but GitHub only
-     lets an app resolve a review thread with this permission. With Contents: Read it answers
+   - **Repository permissions → Contents: Read and write**: he writes code only if you switch on the
+     push of fixes (below), but GitHub also only lets an app
+     resolve a review thread with this permission. With Contents: Read it answers
      "Resource not accessible by integration" (checked on a throwaway PR).
 
    An organization owner then has to **accept the new permissions** on the installation (GitHub sends a notification, or: Organization settings → GitHub Apps → Configure).
