@@ -14,22 +14,22 @@ on:
         type: string
         default: scan
       max_issues:
-        description: "Maximum number of tickets to look at in a scan (1-20)"
+        description: 'Maximum number of tickets to look at in a scan (1-20)'
         required: false
         type: string
-        default: "5"
+        default: '5'
       dry_run:
-        description: "Only show what would change in the job summary, do not change anything"
+        description: 'Only show what would change in the job summary, do not change anything'
         required: false
         type: boolean
         default: true
       apply:
-        description: "Also create the sub-issues of a proposed split (without it, a split is only proposed in a comment)"
+        description: 'Also create the sub-issues of a proposed split (without it, a split is only proposed in a comment)'
         required: false
         type: boolean
         default: false
       scripts_ref:
-        description: "Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts"
+        description: 'Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts'
         required: false
         type: string
         default: v1
