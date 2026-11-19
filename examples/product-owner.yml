@@ -1,0 +1,37 @@
+# Copy this file to .github/workflows/product-owner.yml of your repository.
+#
+# Run it from the Actions tab with a rough direction: the Product Owner reads the backlog and the
+# code, and files tickets with acceptance criteria. Setup (secrets, board, GitHub App) is in the README.
+name: Product Owner
+
+on:
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: 'Rough direction for new features (e.g. "teams should be able to vote on meeting times")'
+        required: true
+        type: string
+      max_tickets:
+        description: "Maximum number of tickets to create (1-12)"
+        required: false
+        default: "6"
+        type: string
+      dry_run:
+        description: "Only show the plan in the job summary, do not create anything"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  product-owner:
+    uses: learosema-adesso/review-and-product-owner-bots/.github/workflows/product-owner.yml@v1
+    with:
+      direction: ${{ inputs.direction }}
+      max_tickets: ${{ inputs.max_tickets }}
+      dry_run: ${{ inputs.dry_run }}
+    secrets: inherit
