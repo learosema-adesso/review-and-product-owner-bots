@@ -147,3 +147,7 @@ npx prettier@3.8.1 --check .
 ```
 
 Every change is a pull request with a ticket, checked by CI and reviewed by BullyBot himself.
+
+## License
+
+[MIT](LICENSE)
