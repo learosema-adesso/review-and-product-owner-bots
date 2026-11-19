@@ -15,8 +15,14 @@ if [[ ! "$tag" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
 fi
 major="v${BASH_REMATCH[1]}"
 
+# without the tag (not fetched) the comparison below would be meaningless: say so instead
+if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+  echo "Tag $tag does not exist in this clone, fetch all tags first." >&2
+  exit 1
+fi
+
 # a fix for an older line (v1.0.1 after v1.1.0) must not pull the major tag backwards
-newest="$(git tag --list "${major}.*" | grep -E "^${major}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)"
+newest="$(git tag --list "${major}.*" | { grep -E "^${major}\.[0-9]+\.[0-9]+$" || true; } | sort -V | tail -n 1)"
 if [[ "$newest" != "$tag" ]]; then
   echo "$tag is not the newest release of $major ($newest is), $major stays where it is."
   exit 0
