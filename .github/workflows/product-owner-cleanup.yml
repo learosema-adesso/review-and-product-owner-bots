@@ -122,6 +122,7 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GEMINI_PROJECT_ID: ${{ vars.GEMINI_PROJECT_ID }}
           GEMINI_LOCATION: ${{ vars.GEMINI_LOCATION }}
+          PRODUCT_SOURCE_PATHS: ${{ vars.PRODUCT_SOURCE_PATHS }}
           # passed via env, never interpolated into the script
           DRY_RUN: ${{ inputs.dry_run }}
           STALE_DAYS: ${{ inputs.stale_days }}

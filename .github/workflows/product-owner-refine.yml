@@ -127,6 +127,7 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GEMINI_PROJECT_ID: ${{ vars.GEMINI_PROJECT_ID }}
           GEMINI_LOCATION: ${{ vars.GEMINI_LOCATION }}
+          PRODUCT_SOURCE_PATHS: ${{ vars.PRODUCT_SOURCE_PATHS }}
           PROJECT_TOKEN: ${{ steps.app.outputs.token || secrets.PROJECT_TOKEN }}
           PROJECT_URL: ${{ vars.PROJECT_URL }}
           # passed via env, never interpolated into the script
