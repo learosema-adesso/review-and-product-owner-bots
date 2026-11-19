@@ -17,7 +17,7 @@ on:
       dry_run:
         description: 'Only show the plan in the job summary, do not create anything'
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
