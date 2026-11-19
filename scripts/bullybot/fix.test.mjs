@@ -239,6 +239,19 @@ test('a request from someone with write access gets a suggestion for exactly the
   assert.match(prompt.system, /^PERSONA/);
 });
 
+test('a thread without comments is refused instead of crashing', async () => {
+  const github = fakeGithub();
+  const empty = { ...thread(), comments: { nodes: [] } };
+  const result = await run(
+    github,
+    async () => {
+      throw new Error('must not ask');
+    },
+    empty,
+  );
+  assert.equal(result.status, 'no_rights');
+});
+
 test('a comment without a body does not break the request', async () => {
   const github = fakeGithub();
   let prompt;

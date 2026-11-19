@@ -143,7 +143,7 @@ export async function handleFixRequest({
   const last = thread.comments.nodes.at(-1);
   const say = (text) => postReply(github, thread.id, `${MARKER}\n${text}`);
 
-  if (!(await mayAskForFix({ github, owner, repo, username: last.author?.login }))) {
+  if (!(await mayAskForFix({ github, owner, repo, username: last?.author?.login }))) {
     await say(NO_RIGHTS);
     return { status: 'no_rights' };
   }
