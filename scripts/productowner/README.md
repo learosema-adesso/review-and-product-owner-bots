@@ -81,8 +81,8 @@ app (shown as `<app name>[bot]`) instead of `github-actions`.
 
 1. As an organization owner, open **Organization settings → Developer settings → GitHub Apps → New
    GitHub App**.
-2. Name it (for example `panic-planner-product-owner`). The form requires a homepage URL; use the
-   URL of this repository. Leave Callback URL and Setup URL empty, leave the OAuth, device flow and
+2. Name it (for example `review-and-product-owner-bots`). The form requires a homepage URL; use the
+   URL of your repository or of the [bots](https://github.com/learosema-adesso/review-and-product-owner-bots). Leave Callback URL and Setup URL empty, leave the OAuth, device flow and
    "expire user authorization tokens" options unchecked, and **uncheck Webhook → Active**. Under
    "Where can this GitHub App be installed?" choose **Only on this account**.
 3. Set these permissions, and no others:
@@ -304,9 +304,9 @@ markers, instructions in it are ignored. Always start with a dry run.
 
 | File                                          | Purpose                                                                    |
 | --------------------------------------------- | -------------------------------------------------------------------------- |
-| `.github/workflows/product-owner.yml`         | The manually triggered workflow.                                           |
-| `.github/workflows/product-owner-cleanup.yml` | The manually triggered backlog cleanup.                                    |
-| `.github/workflows/product-owner-refine.yml`  | The manually triggered ticket refinement.                                  |
+| `.github/workflows/product-owner.yml`         | Reusable workflow: plan and create tickets.                                |
+| `.github/workflows/product-owner-cleanup.yml` | Reusable workflow: backlog cleanup.                                        |
+| `.github/workflows/product-owner-refine.yml`  | Reusable workflow: ticket refinement.                                      |
 | `scripts/productowner-refine.mjs`             | Orchestration of the refinement: prompts, per-ticket flow.                 |
 | `scripts/productowner/refine.mjs`             | Refinement logic: candidates, validation, merging text, comments.          |
 | `scripts/productowner/boardinfo.mjs`          | Reads the Size on the board and the Priority issue field.                  |

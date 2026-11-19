@@ -27,6 +27,12 @@ permissions:
 
 jobs:
   bullybot:
+    # In a public repository everybody can comment: only the people who work on it may make the
+    # bot spend tokens by replying in a thread. Keep this condition.
+    if: >-
+      github.event_name != 'pull_request_review_comment' ||
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) ||
+      github.event.comment.user.type == 'Bot'
     uses: learosema-adesso/review-and-product-owner-bots/.github/workflows/bullybot.yml@v1
     with:
       pr_number: ${{ inputs.pr_number || 0 }}
