@@ -18,7 +18,7 @@ on:
         type: number
 
 # What the called workflow needs. "actions: read" lets it find out which version of the scripts
-# it runs, without it the version in "scripts_ref" is used.
+# it runs. Without it GitHub rejects the run at startup.
 permissions:
   contents: read
   issues: read
