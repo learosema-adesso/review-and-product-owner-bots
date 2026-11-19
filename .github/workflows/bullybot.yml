@@ -210,6 +210,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          # a cache written by code of the pull request could be read by the default branch
+          package-manager-cache: false
 
       - name: Apply the fix
         env:
@@ -227,6 +229,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version-file: ${{ inputs.fix_node_version_file }}
+          # a cache written by code of the pull request could be read by the default branch
+          package-manager-cache: false
 
       - name: Run the tests
         shell: bash
@@ -266,6 +270,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          # nothing to cache here, and no cache action in the jobs that deal with the pull request
+          package-manager-cache: false
 
       # Created only now, after the tests. Without the token the job fails, there is no fallback to the
       # workflow token: pushing and answering the thread need the app.

@@ -113,3 +113,15 @@ test('a fix is only proposed with a test command and an app token, and the jobs 
   assert.doesNotMatch(all['fix-test'], /concurrency:/);
   assert.doesNotMatch(all['fix-finish'], /concurrency:/);
 });
+
+test('the jobs of "fix it" never use a cache that code of the pull request could poison', () => {
+  for (const name of ['fix-test', 'fix-finish']) {
+    const job = all[name];
+    assert.doesNotMatch(job, /actions\/cache/, name);
+    assert.doesNotMatch(job, /^\s+cache:/m, name);
+    // setup-node caches the package manager by itself, unless it is told not to
+    const steps = job.split(/^ {6}- /m).filter((s) => /uses: actions\/setup-node@/.test(s));
+    assert.ok(steps.length > 0, `${name} sets up Node.js`);
+    for (const step of steps) assert.match(step, /package-manager-cache: false/, name);
+  }
+});

@@ -112,3 +112,33 @@ test('the command line entry applies the proposal from the environment and fails
     assert.match(garbage.stderr, /no usable fix proposal/);
   });
 });
+
+test('a file that cannot be looked at, read or written gives a reason, not a crash', () => {
+  withCheckout(({ root }) => {
+    const fail = (code) => () => {
+      throw Object.assign(new Error(code), { code });
+    };
+    const real = {
+      lstatSync: () => ({ isFile: () => true }),
+      realpathSync: (p) => p,
+      readFileSync: () => 'one\ntwo\nthree\n',
+      writeFileSync: () => {},
+    };
+    const run = (fs) => applyToCheckout({ proposal: proposal(), root, maxLines: 5, fs });
+    assert.deepEqual(run(real), { ok: true });
+    assert.match(
+      run({ ...real, realpathSync: fail('EACCES') }).reason,
+      /could not be handled \(EACCES\)/,
+    );
+    assert.match(
+      run({ ...real, readFileSync: fail('EISDIR') }).reason,
+      /could not be handled \(EISDIR\)/,
+    );
+    assert.match(
+      run({ ...real, writeFileSync: fail('EROFS') }).reason,
+      /could not be handled \(EROFS\)/,
+    );
+    // a file that vanished between looking at it and reading it
+    assert.match(run({ ...real, readFileSync: fail('ENOENT') }).reason, /does not exist/);
+  });
+});
