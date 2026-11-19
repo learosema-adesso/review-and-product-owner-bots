@@ -72,3 +72,10 @@ test('selectSourceFiles: without directories the whole repository counts', () =>
     'b.ts',
   ]);
 });
+
+test('"." means the whole repository', () => {
+  assert.deepEqual(parseSourceDirs('.'), ['.']);
+  assert.deepEqual(parseSourceDirs('./'), ['.']);
+  assert.equal(detectSourceDirs(['src/a.ts', 'lib/b.ts'], parseSourceDirs('.')), null);
+  assert.equal(detectSourceDirs(['src/a.ts'], parseSourceDirs('src, .')), null);
+});
