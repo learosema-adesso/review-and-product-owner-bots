@@ -1,0 +1,42 @@
+# Runs the Product Owner on this repository, using the reusable workflow of this very repository
+# (the version of the branch it runs on). For other repositories see examples/product-owner-refine.yml.
+name: Product Owner refine
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Issue number to refine, or "scan" to let the bot pick candidates'
+        required: false
+        default: 'scan'
+        type: string
+      max_issues:
+        description: 'Maximum number of tickets to look at in a scan (1-20)'
+        required: false
+        default: '5'
+        type: string
+      dry_run:
+        description: 'Only show what would change in the job summary, do not change anything'
+        required: false
+        default: true
+        type: boolean
+      apply:
+        description: 'Also create the sub-issues of a proposed split (without it, a split is only proposed in a comment)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  refine:
+    uses: ./.github/workflows/product-owner-refine.yml
+    with:
+      issue: ${{ inputs.issue }}
+      max_issues: ${{ inputs.max_issues }}
+      dry_run: ${{ inputs.dry_run }}
+      apply: ${{ inputs.apply }}
+    secrets: inherit

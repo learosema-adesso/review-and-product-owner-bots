@@ -1,0 +1,35 @@
+# Runs the Product Owner on this repository, using the reusable workflow of this very repository
+# (the version of the branch it runs on). For other repositories see examples/product-owner.yml.
+name: Product Owner
+
+on:
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: 'Rough direction for new features (e.g. "teams should be able to vote on meeting times")'
+        required: true
+        type: string
+      max_tickets:
+        description: 'Maximum number of tickets to create (1-12)'
+        required: false
+        default: '6'
+        type: string
+      dry_run:
+        description: 'Only show the plan in the job summary, do not create anything'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  product-owner:
+    uses: ./.github/workflows/product-owner.yml
+    with:
+      direction: ${{ inputs.direction }}
+      max_tickets: ${{ inputs.max_tickets }}
+      dry_run: ${{ inputs.dry_run }}
+    secrets: inherit
