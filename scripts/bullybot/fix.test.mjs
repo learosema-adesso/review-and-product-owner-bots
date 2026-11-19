@@ -364,3 +364,72 @@ test('his own answer carries the fix marker, so the thread is not answered a sec
   assert.equal(isFixRequest(answered), false);
   assert.ok(github.replies[0].includes(FIX_MARKER));
 });
+
+const pushPr = {
+  number: 7,
+  head: { sha: 'a'.repeat(40), ref: 'feat/x', repo: { owner: { login: 'o' }, name: 'r' } },
+};
+
+test('with push on, a fix that passes the checks becomes a proposal and nothing is posted', async () => {
+  const github = fakeGithub();
+  const result = await run(github, suggest(['line 10 fixed']), thread(comment('fix it')), {
+    pr: pushPr,
+    pushPlan: { enabled: true, blockedReason: null },
+  });
+  assert.equal(result.status, 'proposed');
+  assert.deepEqual(result.proposal, {
+    v: 1,
+    threadId: 'T1',
+    path: 'src/a.mjs',
+    startLine: 10,
+    endLine: 10,
+    original: ['line 10'],
+    replacement: ['line 10 fixed'],
+    explanation: 'Swapped it.',
+    baseSha: 'a'.repeat(40),
+    headRef: 'feat/x',
+    prNumber: 7,
+    requestedBy: 'lea',
+  });
+  assert.deepEqual(github.replies, []);
+});
+
+test('with push on but not possible here, the suggestion is posted and says why', async () => {
+  const github = fakeGithub();
+  const result = await run(github, suggest(['line 10 fixed']), thread(comment('fix it')), {
+    pr: pushPr,
+    pushPlan: { enabled: true, blockedReason: 'the branch is protected' },
+  });
+  assert.equal(result.status, 'suggested');
+  assert.match(github.replies[0], /```suggestion\nline 10 fixed\n```/);
+  assert.match(github.replies[0], /I did not push it myself: the branch is protected\./);
+});
+
+test('with push on, the refusals before a proposal are the same as without', async () => {
+  const plan = { enabled: true, blockedReason: null };
+  const noRights = fakeGithub({ role: 'read' });
+  assert.equal(
+    (await run(noRights, suggest(['x']), thread(comment('fix it')), { pr: pushPr, pushPlan: plan }))
+      .status,
+    'no_rights',
+  );
+  const tooBig = fakeGithub();
+  assert.equal(
+    (
+      await run(
+        tooBig,
+        async () => ({ decision: 'too_big', explanation: 'Needs another file.' }),
+        thread(comment('fix it')),
+        { pr: pushPr, pushPlan: plan },
+      )
+    ).status,
+    'too_big',
+  );
+  const empty = fakeGithub();
+  assert.equal(
+    (await run(empty, suggest(['   ']), thread(comment('fix it')), { pr: pushPr, pushPlan: plan }))
+      .status,
+    'refused',
+  );
+  assert.equal(empty.replies.length, 1);
+});

@@ -1,5 +1,6 @@
 import { answerThread, resolveInstruction } from './bullybot/threads.mjs';
 import { FIX_MARKER, clampFixMaxLines, handleFixRequest, isFixRequest } from './bullybot/fix.mjs';
+import { planPushes } from './bullybot/pushfix.mjs';
 import { askFromEnv } from './lib/llm.mjs';
 import { parseDiff, isNoise } from './bullybot/diff.mjs';
 import { gatherContext, fitSections } from './bullybot/context.mjs';
@@ -138,6 +139,7 @@ export async function bullybot({
   prNumber: prNumberInput,
   canResolveThreads = false, // true with the token of the GitHub App: he resolves threads himself
   fixMaxLines, // longest suggestion he posts when asked to "fix it"
+  fixPush = false, // true: a fix is proposed to the workflow (tested, then pushed) instead of suggested
 }) {
   const { owner, repo } = context.repo;
   const prNumber = Number(prNumberInput ?? context.issue?.number);
@@ -226,6 +228,14 @@ export async function bullybot({
 
   // 5a. A human asked for a fix ("fix it"): answer with a suggestion, never with a verdict
   const fixRequests = threadsToCheck.filter(isFixRequest);
+  let planFor = () => ({ enabled: false });
+  try {
+    if (fixRequests.length)
+      planFor = await planPushes({ github, owner, repo, pr, enabled: fixPush });
+  } catch (error) {
+    core.warning(`Could not prepare pushing fixes, suggestions only: ${error.message}`);
+  }
+  let proposal = null;
   for (const thread of fixRequests) {
     try {
       const outcome = await handleFixRequest({
@@ -238,13 +248,21 @@ export async function bullybot({
         pr,
         thread,
         maxLines: clampFixMaxLines(fixMaxLines),
+        pushPlan: await planFor(thread),
       });
       core.info(`Fix request in thread ${thread.id}: ${outcome.status}.`);
+      if (outcome.status === 'proposed') proposal = outcome.proposal;
       // answered for the rest of this run, so it is not judged below
       thread.comments.nodes.push({ body: `${MARKER}${FIX_MARKER}` });
     } catch (error) {
       core.warning(`Fix request in thread ${thread.id} skipped: ${error.message}`);
     }
+  }
+
+  // handed to the workflow as job outputs (data only): it tests the fix and pushes it afterwards
+  if (proposal) {
+    core.setOutput('fix_proposal', JSON.stringify(proposal));
+    core.setOutput('fix_pending', 'true');
   }
 
   // 5b. Open bot threads: has the problem been fixed (or refuted)?
