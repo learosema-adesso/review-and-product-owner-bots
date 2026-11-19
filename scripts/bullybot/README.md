@@ -56,7 +56,8 @@ re-checks his open threads against the new code.
 
 Reply **`fix it`** (or `fix this`, in any case, also inside a sentence like "yes, please fix it") in
 one of his review threads and he answers with a **GitHub suggestion** for exactly the lines of his
-finding. You apply it with one click ("Commit suggestion"), he never pushes anything himself. "I'll
+finding. You apply it with one click ("Commit suggestion"). He pushes nothing himself, unless you
+switch that on (see [below](#letting-him-push-the-fix-optional)). "I'll
 fix it", "don't fix it" and "fix it myself" are not requests.
 
 - Only people with **write access** to the repository can ask. Anyone else gets a short refusal.
@@ -70,6 +71,47 @@ fix it", "don't fix it" and "fix it myself" are not requests.
 - The thread text, the code and the PR text are data for the model: it can only return the new
   lines, it cannot name other files or run anything. Weaker models write worse suggestions, read
   them before you click.
+
+### Letting him push the fix (optional)
+
+By default he only suggests. If you give the caller workflow a **test command**, a `fix it` makes him
+**commit the fix to the branch of the pull request** himself, after the tests passed on it:
+
+```yaml
+with:
+  fix_test_command: npm ci && npm test
+  fix_node_version_file: .nvmrc # optional, the Node.js version for the command
+```
+
+What happens, in three jobs with different rights:
+
+1. He writes the fix as for a suggestion, but posts nothing yet.
+2. **`fix-test`** checks out the pull request at the commit he looked at, applies the fix and runs
+   your command. This is the only job that runs the code of the pull request, and it has **no secrets
+   and a token that can only read**. The same pull request could already run that code in your own CI.
+3. **`fix-finish`** creates the token of the GitHub App only now. With green tests it commits the fix
+   as the app (you are the co-author, the message has a `BullyBot-Fix: <thread>` line) and answers in
+   the thread with the commit. The push starts the normal checks of the pull request, and his usual
+   re-check decides whether the finding is gone.
+
+What he **pushes**: one commit that changes the lines of his finding in that one file, within the line
+limit (`BULLYBOT_FIX_MAX_LINES`), on a branch of the same repository.
+
+What he **refuses**, and answers with the suggestion and the reason instead:
+
+- manual runs (`workflow_dispatch`): their cache is the one of the default branch, and the tests run code
+  of the pull request that could poison it. Pull request events have a cache of their own.
+- pull requests from forks, the default branch, protected branches, files under `.github/`
+- a second fix for the same thread, and more than one fix per run
+- a branch that moved since he made the fix (he never retries on his own and never forces a push), a
+  file that changed under the lines, symlinks and files he cannot read
+- failing, cancelled or missing tests (the end of the log goes into the thread)
+- someone who does not have write access (checked again before the push)
+
+It needs the GitHub App of step 3 with **Contents: Read and write** (to create the commit) and
+**Pull requests: Read and write**; without the app he suggests as before. The caller needs nothing
+beyond what it grants today. A weak model writes bad patches, the tests and the checks above are the
+safety net: read what he pushes.
 
 ### What he reads
 
@@ -108,8 +150,9 @@ Large PRs are cut down by priority, the least important context goes first (diff
    the secrets `PRODUCT_OWNER_CLIENT_ID` and `PRODUCT_OWNER_APP_KEY` are shared). Add two permissions
    to the app (app settings → Permissions & events):
    - **Repository permissions → Pull requests: Read and write** (reviews, comments, thread replies)
-   - **Repository permissions → Contents: Read and write**: he never writes code, but GitHub only
-     lets an app resolve a review thread with this permission. With Contents: Read it answers
+   - **Repository permissions → Contents: Read and write**: he writes code only if you switch on the
+     push of fixes (below), but GitHub also only lets an app
+     resolve a review thread with this permission. With Contents: Read it answers
      "Resource not accessible by integration" (checked on a throwaway PR).
 
    An organization owner then has to **accept the new permissions** on the installation (GitHub sends a notification, or: Organization settings → GitHub Apps → Configure).

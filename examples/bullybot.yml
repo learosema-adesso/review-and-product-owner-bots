@@ -36,4 +36,9 @@ jobs:
     uses: learosema-adesso/review-and-product-owner-bots/.github/workflows/bullybot.yml@v1
     with:
       pr_number: ${{ inputs.pr_number || 0 }}
+      # Optional: let him push a fix to the branch of the pull request when someone replies "fix it" in
+      # one of his threads, after this command passed on the fixed code. Needs the GitHub App. The command
+      # runs in a job without secrets and without write access. Without it he only suggests fixes.
+      # fix_test_command: npm ci && npm test
+      # fix_node_version_file: .nvmrc
     secrets: inherit

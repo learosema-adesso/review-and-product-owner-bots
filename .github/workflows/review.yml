@@ -31,4 +31,7 @@ jobs:
     uses: ./.github/workflows/bullybot.yml
     with:
       pr_number: ${{ inputs.pr_number || 0 }}
+      # "fix it" in one of his threads makes him push the fix, if these tests pass on it
+      fix_test_command: npm ci --prefix scripts && npm test --prefix scripts
+      fix_node_version_file: .nvmrc
     secrets: inherit
