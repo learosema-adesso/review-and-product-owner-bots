@@ -127,7 +127,9 @@ const numbered = (lines, from) => lines.map((l, i) => `${from + i}: ${l}`).join(
 
 /**
  * Answers one "fix it" request with a suggestion, or with the reason there is none.
- * Always replies in the thread, never changes any file. Returns what happened.
+ * Never changes any file. Without push, or if pushing is not possible, it always replies in the
+ * thread. With `pushPlan.enabled` and no `blockedReason` the fix is not posted but returned as a
+ * proposal ({ status: 'proposed', proposal }): the workflow tests it and pushes it (pushfix.mjs).
  */
 export async function handleFixRequest({
   github,
@@ -139,6 +141,7 @@ export async function handleFixRequest({
   pr,
   thread,
   maxLines,
+  pushPlan = { enabled: false },
 }) {
   const last = thread.comments.nodes.at(-1);
   const say = (text) => postReply(github, thread.id, `${MARKER}\n${text}`);
@@ -216,7 +219,30 @@ export async function handleFixRequest({
     );
     return { status: 'refused', reason: checked.reason };
   }
-  await postReply(github, thread.id, renderSuggestion(answer.explanation.trim(), checked.lines));
+  const explanation = answer.explanation.trim();
+  if (pushPlan.enabled && !pushPlan.blockedReason) {
+    core?.info(`Proposing a fix for ${thread.path}:${range.start}-${range.end}.`);
+    return {
+      status: 'proposed',
+      proposal: {
+        v: 1,
+        threadId: thread.id,
+        path: thread.path,
+        startLine: range.start,
+        endLine: range.end,
+        original: current,
+        replacement: checked.lines,
+        explanation,
+        baseSha: pr.head.sha,
+        headRef: pr.head.ref,
+        prNumber: pr.number,
+        requestedBy: last?.author?.login,
+      },
+    };
+  }
+  // push was wanted but is not possible here: the suggestion says so
+  const note = pushPlan.enabled ? `\n\n(I did not push it myself: ${pushPlan.blockedReason}.)` : '';
+  await postReply(github, thread.id, renderSuggestion(`${explanation}${note}`, checked.lines));
   core?.info(`Suggested a fix for ${thread.path}:${range.start}-${range.end}.`);
   return { status: 'suggested' };
 }
