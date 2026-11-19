@@ -1,4 +1,5 @@
 import { answerThread, resolveInstruction } from './bullybot/threads.mjs';
+import { FIX_MARKER, clampFixMaxLines, handleFixRequest, isFixRequest } from './bullybot/fix.mjs';
 import { askFromEnv } from './lib/llm.mjs';
 import { parseDiff, isNoise } from './bullybot/diff.mjs';
 import { gatherContext, fitSections } from './bullybot/context.mjs';
@@ -136,6 +137,7 @@ export async function bullybot({
   core,
   prNumber: prNumberInput,
   canResolveThreads = false, // true with the token of the GitHub App: he resolves threads himself
+  fixMaxLines, // longest suggestion he posts when asked to "fix it"
 }) {
   const { owner, repo } = context.repo;
   const prNumber = Number(prNumberInput ?? context.issue?.number);
@@ -195,8 +197,8 @@ export async function bullybot({
           pullRequest(number: $prNumber) {
             reviewThreads(first: 100) {
               nodes {
-                id isResolved isOutdated path line originalLine
-                comments(first: 30) { nodes { body author { login } } }
+                id isResolved isOutdated path line startLine originalLine
+                comments(first: 30) { nodes { body author { login __typename } } }
               }
             }
           }
@@ -222,8 +224,31 @@ export async function bullybot({
     return;
   }
 
-  // 5. Open bot threads: has the problem been fixed (or refuted)?
-  for (const thread of threadsToCheck) {
+  // 5a. A human asked for a fix ("fix it"): answer with a suggestion, never with a verdict
+  const fixRequests = threadsToCheck.filter(isFixRequest);
+  for (const thread of fixRequests) {
+    try {
+      const outcome = await handleFixRequest({
+        github,
+        core,
+        ask,
+        persona: PERSONA,
+        owner,
+        repo,
+        pr,
+        thread,
+        maxLines: clampFixMaxLines(fixMaxLines),
+      });
+      core.info(`Fix request in thread ${thread.id}: ${outcome.status}.`);
+      // answered for the rest of this run, so it is not judged below
+      thread.comments.nodes.push({ body: `${MARKER}${FIX_MARKER}` });
+    } catch (error) {
+      core.warning(`Fix request in thread ${thread.id} skipped: ${error.message}`);
+    }
+  }
+
+  // 5b. Open bot threads: has the problem been fixed (or refuted)?
+  for (const thread of threadsToCheck.filter((t) => !fixRequests.includes(t))) {
     const msgs = thread.comments.nodes;
     const lastIsHuman = !msgs.at(-1).body.includes(MARKER);
 

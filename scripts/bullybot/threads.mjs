@@ -21,7 +21,7 @@ export function resolveInstruction(canResolve) {
 export const RESOLVE_FAILED_NOTE =
   "Correction: I'm not allowed to resolve this thread after all. Go ahead and click Resolve. I'll pretend I did it.";
 
-const postReply = (github, threadId, body) =>
+export const postReply = (github, threadId, body) =>
   github.graphql(
     `mutation($threadId: ID!, $body: String!) {
       addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $threadId, body: $body }) {

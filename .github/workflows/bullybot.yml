@@ -89,6 +89,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
           # true only when the app token exists: then he resolves threads himself
           CAN_RESOLVE_THREADS: ${{ steps.app.outputs.token != '' }}
+          # longest suggestion he posts when asked to "fix it" (default 40)
+          BULLYBOT_FIX_MAX_LINES: ${{ vars.BULLYBOT_FIX_MAX_LINES }}
         with:
           github-token: ${{ steps.app.outputs.token || github.token }}
           script: |
@@ -102,4 +104,5 @@ jobs:
               core,
               prNumber: Number(process.env.PR_NUMBER),
               canResolveThreads: process.env.CAN_RESOLVE_THREADS === 'true',
+              fixMaxLines: process.env.BULLYBOT_FIX_MAX_LINES,
             });

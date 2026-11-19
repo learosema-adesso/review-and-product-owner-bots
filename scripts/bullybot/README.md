@@ -52,6 +52,25 @@ again. Without the app, the workflow token is not allowed to resolve threads: he
 click "Resolve", and the thread stays settled even while it is open. On every push he also
 re-checks his open threads against the new code.
 
+### Asking him to fix a finding
+
+Reply **`fix it`** (or `fix this`, in any case, also inside a sentence like "yes, please fix it") in
+one of his review threads and he answers with a **GitHub suggestion** for exactly the lines of his
+finding. You apply it with one click ("Commit suggestion"), he never pushes anything himself. "I'll
+fix it", "don't fix it" and "fix it myself" are not requests.
+
+- Only people with **write access** to the repository can ask. Anyone else gets a short refusal.
+- He suggests nothing, and says why, if: the fix needs changes outside the lines of the finding or
+  in another file ("too big for a suggestion"), the code around the finding has changed since
+  (ask again after the next push), the suggestion would change nothing or is empty, it is longer
+  than **40 lines** (set the repository variable `BULLYBOT_FIX_MAX_LINES` to change that, up to
+  200), or the file is under `.github/`.
+- One request gets one answer. He does not answer his own suggestion, and a reply of a bot is never
+  a request. If the suggestion is not good, reply with the reason as usual.
+- The thread text, the code and the PR text are data for the model: it can only return the new
+  lines, it cannot name other files or run anything. Weaker models write worse suggestions, read
+  them before you click.
+
 ### What he reads
 
 - The PR diff, plus the full content of changed files, existing tests of changed files, the
@@ -123,15 +142,16 @@ section. Criteria that can't be tested automatically are marked n/a rather than 
 
 ## Troubleshooting
 
-| Symptom                             | Likely cause and fix                                                                                                                                                                                                  |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| `LLM_API_KEY secret is missing!`    | Add the secret. PRs from forks and bots never get it.                                                                                                                                                                 |
-| Nothing happens on a PR             | Draft PR, bot PR, or someone wrote `shut up`.                                                                                                                                                                         |
-| "No linked issue" hint              | Add `Closes #<issue>` to the PR description.                                                                                                                                                                          |
-| Criteria show as "not assessed"     | The model left them out. Push again or run the workflow by hand.                                                                                                                                                      |
-| `AI Generation failed`              | The AI service was overloaded, refused the request or returned nothing usable. He makes up to three attempts, run it again later.                                                                                     |
-| He keeps raising something wrong    | Reply in the thread with the reason. If you're right he admits it.                                                                                                                                                    |
-| Thread stays open after he conceded | He runs without the app token: click "Resolve", or set up step 3. If he says "Correction: I'm not allowed to resolve", the app lacks Pull requests: write or Contents: write, or the owner has not accepted them yet. |     |
+| Symptom                                             | Likely cause and fix                                                                                                                                                                                                  |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `LLM_API_KEY secret is missing!`                    | Add the secret. PRs from forks and bots never get it.                                                                                                                                                                 |
+| Nothing happens on a PR                             | Draft PR, bot PR, or someone wrote `shut up`.                                                                                                                                                                         |
+| "No linked issue" hint                              | Add `Closes #<issue>` to the PR description.                                                                                                                                                                          |
+| Criteria show as "not assessed"                     | The model left them out. Push again or run the workflow by hand.                                                                                                                                                      |
+| `AI Generation failed`                              | The AI service was overloaded, refused the request or returned nothing usable. He makes up to three attempts, run it again later.                                                                                     |
+| He answers `fix it` with "Too big for a suggestion" | The fix reaches beyond the lines of his finding. Fix it by hand, or ask for a smaller step.                                                                                                                           |
+| He keeps raising something wrong                    | Reply in the thread with the reason. If you're right he admits it.                                                                                                                                                    |
+| Thread stays open after he conceded                 | He runs without the app token: click "Resolve", or set up step 3. If he says "Correction: I'm not allowed to resolve", the app lacks Pull requests: write or Contents: write, or the owner has not accepted them yet. |     |
 
 ## Files
 
