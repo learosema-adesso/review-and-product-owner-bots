@@ -179,7 +179,7 @@ output and lock files.
 For any other layout, set the repository variable `PRODUCT_SOURCE_PATHS` to a list of directories,
 separated by commas or lines, for example `apps/web/src, libs`. It replaces the detection. A
 directory matches as a whole (`src` does not match `src-old/`), and entries outside the repository
-(`..`, absolute paths) are ignored.
+(`..`, absolute paths) are ignored. `.` stands for the whole repository.
 
 ## Running it
 
