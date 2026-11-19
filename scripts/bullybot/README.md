@@ -98,9 +98,11 @@ Large PRs are cut down by priority, the least important context goes first (diff
    use another provider (any OpenAI-compatible API) set the variables `LLM_PROVIDER`, `LLM_MODEL`
    and `LLM_BASE_URL`, see the [AI provider section of scripts/README.md](../README.md#ai-provider).
    Weaker models review worse: wrong line numbers and false findings.
-2. The workflow in `.github/workflows/bullybot.yml` declares its own permissions
-   (`contents: read`, `issues: read`, `pull-requests: write`) for the workflow token. That is enough
-   for reviewing.
+2. Copy [`examples/bullybot.yml`](../../examples/bullybot.yml) to `.github/workflows/bullybot.yml`
+   of your repository. The caller declares the permissions of the workflow token
+   (`contents: read`, `issues: read`, `pull-requests: write`, `actions: read`). That is enough for
+   reviewing, `actions: read` is needed so the called workflow can find its own version (without it
+   GitHub rejects the run at startup).
 3. Optional, **to let him resolve threads and to have his comments written by an app**: use the same
    GitHub App as the Product Owner (see its [README](../productowner/README.md#option-a-a-github-app-recommended),
    the secrets `PRODUCT_OWNER_CLIENT_ID` and `PRODUCT_OWNER_APP_KEY` are shared). Add two permissions
@@ -157,7 +159,8 @@ section. Criteria that can't be tested automatically are marked n/a rather than 
 
 | File                              | Purpose                                                                   |
 | --------------------------------- | ------------------------------------------------------------------------- |
-| `.github/workflows/bullybot.yml`  | Triggers, permissions and concurrency.                                    |
+| `.github/workflows/bullybot.yml`  | Reusable workflow: permissions, concurrency, runs the scripts.            |
+| `examples/bullybot.yml`           | Caller for your repository: triggers and the condition for comments.      |
 | `scripts/bullybot.mjs`            | Orchestration: persona, prompts, thread follow-ups, posting the review.   |
 | `scripts/bullybot/diff.mjs`       | Splits and line-annotates the diff, finds related tests, skips noise.     |
 | `scripts/bullybot/context.mjs`    | Gathers linked issues, files, guidelines and fits them into the budget.   |

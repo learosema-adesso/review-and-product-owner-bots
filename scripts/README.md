@@ -1,10 +1,9 @@
 # Scripts
 
-This folder contains various scripts :)
+The code of the bots, called by the reusable workflows in `.github/workflows/`. How to install them
+is in the [README of the repository](../README.md).
 
-## Quality Assurance
-
-QA is done by eslint, and BullyBot :D
+## BullyBot
 
 BullyBot is a mean code reviewer, a classical senior tech bully. Don't take him 100% serious.
 He's programmed to be salty. What he looks at, how to silence him and how to set him up is in
