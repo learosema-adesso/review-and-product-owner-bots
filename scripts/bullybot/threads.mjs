@@ -2,8 +2,9 @@ import { BOT_RESOLVED, MARKER } from './review.mjs';
 
 /**
  * Answering a review thread. With the token of the GitHub App BullyBot may resolve a thread
- * himself. The workflow token is not allowed to ("Resource not accessible by integration"), then
- * he marks the thread as settled and asks the human to click "Resolve".
+ * himself, if the app has Pull requests: write AND Contents: write (with Contents: read GitHub
+ * answers "Resource not accessible by integration"). The workflow token is not allowed to either,
+ * then he marks the thread as settled and asks the human to click "Resolve".
  */
 
 /** Part of the verdict prompt: what the reply says about resolving, depending on the token. */

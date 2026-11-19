@@ -55,7 +55,8 @@ jobs:
         run: npm ci --ignore-scripts --prefix scripts
 
       # With the GitHub App, BullyBot's comments come from the app and he can resolve review threads
-      # himself (the workflow token cannot). The app needs "Pull requests: Read and write".
+      # himself (the workflow token cannot). The app needs "Pull requests: Read and write" and, because GitHub
+      # only lets an app resolve threads with it, "Contents: Read and write" (checked on a throwaway PR).
       # If the token cannot be created (secrets missing, permission not accepted yet), he carries on
       # with the workflow token and asks the human to click "Resolve", as before.
       - name: Create GitHub App token
@@ -68,7 +69,7 @@ jobs:
           private-key: ${{ secrets.PRODUCT_OWNER_APP_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-          permission-contents: read
+          permission-contents: write
           permission-issues: read
           permission-pull-requests: write
 

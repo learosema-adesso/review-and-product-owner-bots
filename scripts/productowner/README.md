@@ -90,6 +90,14 @@ app (shown as `<app name>[bot]`) instead of `github-actions`.
    - **Repository permissions → Contents: Read** (reads the README and the source of the app)
    - **Organization permissions → Projects: Read and write** (Status and Size on the board)
    - **Organization permissions → Issue fields: Read** (finds the Priority field)
+
+   If BullyBot uses the same app (to resolve review threads), it also has **Pull requests: Read and
+   write** and **Contents: Read and write**, see [BullyBot's README](../bullybot/README.md#setup).
+   The tokens of the Product Owner workflows then have these permissions too. They cannot be
+   narrowed, because the token action has no input for the organization permission "Issue fields",
+   and a token limited to the other permissions could not set Priority. The Product Owner never
+   uses them.
+
 4. Create the app. On its settings page, note the **Client ID**, then **Generate a private key**
    (a `.pem` file is downloaded).
 5. Open **Install App**, install it on the organization and choose **Only select repositories** with

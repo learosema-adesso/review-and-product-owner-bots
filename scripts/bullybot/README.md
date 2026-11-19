@@ -84,10 +84,14 @@ Large PRs are cut down by priority, the least important context goes first (diff
    for reviewing.
 3. Optional, **to let him resolve threads and to have his comments written by an app**: use the same
    GitHub App as the Product Owner (see its [README](../productowner/README.md#option-a-a-github-app-recommended),
-   the secrets `PRODUCT_OWNER_CLIENT_ID` and `PRODUCT_OWNER_APP_KEY` are shared). Add the permission
-   **Repository permissions → Pull requests: Read and write** to the app (app settings →
-   Permissions & events). An organization owner then has to **accept the new permission** on the
-   installation (GitHub sends a notification, or: Organization settings → GitHub Apps → Configure).
+   the secrets `PRODUCT_OWNER_CLIENT_ID` and `PRODUCT_OWNER_APP_KEY` are shared). Add two permissions
+   to the app (app settings → Permissions & events):
+   - **Repository permissions → Pull requests: Read and write** (reviews, comments, thread replies)
+   - **Repository permissions → Contents: Read and write**: he never writes code, but GitHub only
+     lets an app resolve a review thread with this permission. With Contents: Read it answers
+     "Resource not accessible by integration" (checked on a throwaway PR).
+
+   An organization owner then has to **accept the new permissions** on the installation (GitHub sends a notification, or: Organization settings → GitHub Apps → Configure).
    Until then the step "Create GitHub App token" shows an error and he works with the workflow
    token as before, nothing else breaks. In the job log, "AI provider ..." is followed by the
    threads he settled; "and resolved" means it worked.
@@ -119,15 +123,15 @@ section. Criteria that can't be tested automatically are marked n/a rather than 
 
 ## Troubleshooting
 
-| Symptom                             | Likely cause and fix                                                                                                                                                            |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| `LLM_API_KEY secret is missing!`    | Add the secret. PRs from forks and bots never get it.                                                                                                                           |
-| Nothing happens on a PR             | Draft PR, bot PR, or someone wrote `shut up`.                                                                                                                                   |
-| "No linked issue" hint              | Add `Closes #<issue>` to the PR description.                                                                                                                                    |
-| Criteria show as "not assessed"     | The model left them out. Push again or run the workflow by hand.                                                                                                                |
-| `AI Generation failed`              | The AI service was overloaded, refused the request or returned nothing usable. He makes up to three attempts, run it again later.                                               |
-| He keeps raising something wrong    | Reply in the thread with the reason. If you're right he admits it.                                                                                                              |
-| Thread stays open after he conceded | He runs without the app token: click "Resolve", or set up step 3. If he says "Correction: I'm not allowed to resolve", the app lacks the permission or it was not accepted yet. |     |
+| Symptom                             | Likely cause and fix                                                                                                                                                                                                  |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `LLM_API_KEY secret is missing!`    | Add the secret. PRs from forks and bots never get it.                                                                                                                                                                 |
+| Nothing happens on a PR             | Draft PR, bot PR, or someone wrote `shut up`.                                                                                                                                                                         |
+| "No linked issue" hint              | Add `Closes #<issue>` to the PR description.                                                                                                                                                                          |
+| Criteria show as "not assessed"     | The model left them out. Push again or run the workflow by hand.                                                                                                                                                      |
+| `AI Generation failed`              | The AI service was overloaded, refused the request or returned nothing usable. He makes up to three attempts, run it again later.                                                                                     |
+| He keeps raising something wrong    | Reply in the thread with the reason. If you're right he admits it.                                                                                                                                                    |
+| Thread stays open after he conceded | He runs without the app token: click "Resolve", or set up step 3. If he says "Correction: I'm not allowed to resolve", the app lacks Pull requests: write or Contents: write, or the owner has not accepted them yet. |     |
 
 ## Files
 
