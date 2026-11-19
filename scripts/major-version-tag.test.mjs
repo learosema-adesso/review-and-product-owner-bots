@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -162,4 +162,27 @@ test('without a tag the script fails with a usage message', () => {
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /usage/);
   });
+});
+
+test('a release tag that is not in the clone is an error, not a silent skip', () => {
+  withRepo(({ commit, move }) => {
+    commit();
+    const r = move('v1.0.0');
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /does not exist in this clone/);
+  });
+});
+
+test('the workflow runs on published releases, with write access to contents only', () => {
+  const file = readFileSync(
+    join(import.meta.dirname, '..', '.github', 'workflows', 'major-version-tag.yml'),
+    'utf8',
+  );
+  assert.match(file, /^on:\n {2}release:\n {4}types: \[published\]/m);
+  assert.match(file, /^permissions:\n {2}contents: write/m);
+  assert.doesNotMatch(file, /(issues|pull-requests|actions|packages): write/);
+  assert.match(file, /if: \$\{\{ !github\.event\.release\.prerelease \}\}/);
+  // the tag name goes through the environment, never into the script text
+  assert.match(file, /TAG: \$\{\{ github\.event\.release\.tag_name \}\}/);
+  assert.doesNotMatch(file, /run:.*\$\{\{/);
 });
