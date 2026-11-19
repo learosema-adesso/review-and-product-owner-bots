@@ -2,7 +2,8 @@ name: Product Owner refine (reusable)
 
 # Reusable workflow. Call it from a small workflow of your repository, see examples/.
 # The calling workflow decides the triggers, passes the inputs and has to grant at least the
-# permissions of the job below, plus `actions: read` (see "Find the version of the scripts").
+# permissions of the job below. That includes `actions: read` (see "Find the version of the scripts"):
+# without it GitHub rejects the run at startup.
 
 on:
   workflow_call:
@@ -28,7 +29,7 @@ on:
         type: boolean
         default: false
       scripts_ref:
-        description: 'Only used if the version cannot be found out (the caller lacks "actions: read"): branch, tag or commit of the scripts'
+        description: "Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts"
         required: false
         type: string
         default: v1
@@ -60,7 +61,7 @@ jobs:
       APP_CONFIGURED: ${{ secrets.PRODUCT_OWNER_CLIENT_ID != '' && secrets.PRODUCT_OWNER_APP_KEY != '' }}
     steps:
       # A called workflow does not know which version of itself it runs (`github.job_workflow_sha` is
-      # empty), but the run API does. The caller has to grant `actions: read` for it. Pinning the
+      # empty), but the run API does, which is why the caller has to grant `actions: read`. Pinning the
       # caller to a tag, a branch or a commit therefore runs the scripts of exactly that version.
       - name: Find the version of the scripts
         id: bots
@@ -79,7 +80,7 @@ jobs:
           else
             repository="learosema-adesso/review-and-product-owner-bots"
             sha="$SCRIPTS_REF"
-            echo "::warning::Could not find out which version of $WORKFLOW_FILE is running. The calling workflow needs 'permissions: actions: read'. Using $repository at '$sha' instead."
+            echo "::warning::Could not find out which version of $WORKFLOW_FILE is running (the run could not be read through the API). Using $repository at '$sha' instead."
           fi
           echo "repository=$repository" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
