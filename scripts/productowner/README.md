@@ -168,6 +168,19 @@ workflow), that works fine; the bot sets the fields on the existing item.
 - The labels and milestones you want the bot to use must already exist. It never creates labels
   or milestones, it only picks from the existing ones (`epic` is used for new epics).
 
+### 5. Where the source of the app is (optional)
+
+The bot reads the source of the app to know what the product can do. It finds it on its own: it
+looks into `src/` (single project), `projects/` (Angular workspace) and `packages/` (monorepo), and
+uses each of them that holds source files. If none exists, it reads the whole repository. It reads
+`ts`, `tsx`, `js`, `jsx`, `mjs`, `css`, `scss`, `html`, `vue` and `svelte` files, without tests, build
+output and lock files.
+
+For any other layout, set the repository variable `PRODUCT_SOURCE_PATHS` to a list of directories,
+separated by commas or lines, for example `apps/web/src, libs`. It replaces the detection. A
+directory matches as a whole (`src` does not match `src-old/`), and entries outside the repository
+(`..`, absolute paths) are ignored.
+
 ## Running it
 
 **Actions → Product Owner → Run workflow**
