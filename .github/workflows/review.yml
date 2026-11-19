@@ -1,0 +1,34 @@
+# BullyBot reviews the pull requests of this repository, using the reusable workflow of this very
+# repository (the version of the PR itself, so changes to the bot are reviewed by the changed bot).
+name: BullyBot review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Number of the PR to review"
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  bullybot:
+    # In a public repository everybody can comment: only the people who work on it may make the
+    # bot spend tokens by replying in a thread.
+    if: >-
+      github.event_name != 'pull_request_review_comment' ||
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) ||
+      github.event.comment.user.type == 'Bot'
+    uses: ./.github/workflows/bullybot.yml
+    with:
+      pr_number: ${{ inputs.pr_number || 0 }}
+    secrets: inherit
