@@ -9,12 +9,12 @@ on:
   workflow_call:
     inputs:
       pr_number:
-        description: "Number of the PR to review. Not needed for pull_request events, they bring their own."
+        description: 'Number of the PR to review. Not needed for pull_request events, they bring their own.'
         required: false
         type: number
         default: 0
       scripts_ref:
-        description: "Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts"
+        description: 'Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts'
         required: false
         type: string
         default: v1

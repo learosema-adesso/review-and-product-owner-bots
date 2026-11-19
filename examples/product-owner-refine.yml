@@ -10,20 +10,20 @@ on:
       issue:
         description: 'Issue number to refine, or "scan" to let the bot pick candidates'
         required: false
-        default: "scan"
+        default: 'scan'
         type: string
       max_issues:
-        description: "Maximum number of tickets to look at in a scan (1-20)"
+        description: 'Maximum number of tickets to look at in a scan (1-20)'
         required: false
-        default: "5"
+        default: '5'
         type: string
       dry_run:
-        description: "Only show what would change in the job summary, do not change anything"
+        description: 'Only show what would change in the job summary, do not change anything'
         required: false
         default: true
         type: boolean
       apply:
-        description: "Also create the sub-issues of a proposed split (without it, a split is only proposed in a comment)"
+        description: 'Also create the sub-issues of a proposed split (without it, a split is only proposed in a comment)'
         required: false
         default: false
         type: boolean

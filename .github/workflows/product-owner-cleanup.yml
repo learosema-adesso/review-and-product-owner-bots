@@ -9,22 +9,22 @@ on:
   workflow_call:
     inputs:
       dry_run:
-        description: "Only list the proposals in the job summary, do not change anything"
+        description: 'Only list the proposals in the job summary, do not change anything'
         required: false
         type: boolean
         default: true
       stale_days:
-        description: "Days without activity before an issue counts as inactive"
+        description: 'Days without activity before an issue counts as inactive'
         required: false
         type: string
-        default: "90"
+        default: '90'
       max_issues:
-        description: "Maximum number of issues to touch in one run (1-50)"
+        description: 'Maximum number of issues to touch in one run (1-50)'
         required: false
         type: string
-        default: "10"
+        default: '10'
       scripts_ref:
-        description: "Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts"
+        description: 'Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts'
         required: false
         type: string
         default: v1

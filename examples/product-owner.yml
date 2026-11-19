@@ -12,12 +12,12 @@ on:
         required: true
         type: string
       max_tickets:
-        description: "Maximum number of tickets to create (1-12)"
+        description: 'Maximum number of tickets to create (1-12)'
         required: false
-        default: "6"
+        default: '6'
         type: string
       dry_run:
-        description: "Only show the plan in the job summary, do not create anything"
+        description: 'Only show the plan in the job summary, do not create anything'
         required: false
         default: false
         type: boolean

@@ -13,17 +13,17 @@ on:
         required: true
         type: string
       max_tickets:
-        description: "Maximum number of tickets to create (1-12)"
+        description: 'Maximum number of tickets to create (1-12)'
         required: false
         type: string
-        default: "6"
+        default: '6'
       dry_run:
-        description: "Only show the plan in the job summary, do not create anything"
+        description: 'Only show the plan in the job summary, do not create anything'
         required: false
         type: boolean
         default: false
       scripts_ref:
-        description: "Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts"
+        description: 'Only used if the version of the scripts cannot be found out through the API: branch, tag or commit of the scripts'
         required: false
         type: string
         default: v1
