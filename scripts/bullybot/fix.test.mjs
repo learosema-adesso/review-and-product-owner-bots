@@ -128,6 +128,10 @@ test('the lines of a finding: one line, a range, or none when the code moved on'
   assert.equal(lineRange({ line: 7, isOutdated: true }), null);
   assert.equal(lineRange({ line: null, originalLine: 7 }), null);
   assert.equal(lineRange({ line: 3, startLine: 5 }), null);
+  assert.equal(lineRange({ line: 0 }), null);
+  assert.equal(lineRange({ line: -2 }), null);
+  assert.deepEqual(lineRange({ line: 4, startLine: 0 }), { start: 4, end: 4 });
+  assert.deepEqual(lineRange({ line: 4, startLine: -3 }), { start: 4, end: 4 });
   assert.deepEqual(splitLines('a\r\nb\n'), ['a', 'b']);
   assert.deepEqual(splitLines('a\n\nb'), ['a', '', 'b']);
 });

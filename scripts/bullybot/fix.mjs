@@ -58,8 +58,9 @@ export async function mayAskForFix({ github, owner, repo, username }) {
 
 /** Lines the finding is about (1-based, inclusive), or null if the code has moved on since. */
 export function lineRange(thread) {
-  if (thread.isOutdated || !Number.isInteger(thread.line)) return null;
-  const start = Number.isInteger(thread.startLine) ? thread.startLine : thread.line;
+  const valid = (n) => Number.isInteger(n) && n >= 1; // a line before the first one would slice from the end
+  if (thread.isOutdated || !valid(thread.line)) return null;
+  const start = valid(thread.startLine) ? thread.startLine : thread.line;
   return start <= thread.line ? { start, end: thread.line } : null;
 }
 
